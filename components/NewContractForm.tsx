@@ -59,7 +59,7 @@ export function NewContractForm() {
             <textarea name="m_criteria" rows={4} value={m.criteria} onChange={e => set(m.key, { criteria: e.target.value })} />
           </label>
           <div className="row">
-            <button type="button" className="btn small" onClick={() => sharpen(m)} disabled={busy !== null}>
+            <button type="button" className="btn small sun" onClick={() => sharpen(m)} disabled={busy !== null}>
               {busy === m.key ? 'Sharpening…' : '✦ Make criteria checkable with AI'}
             </button>
             <span className="dim">Vague criteria are where disputes come from.</span>
@@ -70,8 +70,8 @@ export function NewContractForm() {
       <div className="row between">
         <button type="button" className="btn" onClick={() => setMs(xs => [...xs, { key: Date.now(), title: '', criteria: '', amount: '' }])}>+ Add milestone</button>
         <div className="row">
-          <span className="muted">Total to hold: <b>${total.toFixed(2)}</b></span>
-          <button className="btn solid" disabled={pending}>{pending ? 'Creating…' : 'Create contract'}</button>
+          <span className="muted">Total to hold in PayPal: <b style={{ color: 'var(--ink)' }}>${total.toFixed(2)}</b></span>
+          <button className="btn primary" disabled={pending}>{pending ? 'Creating…' : 'Create escrow'}</button>
         </div>
       </div>
     </form>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
+import { Bot } from '../../components/Icons.tsx';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,47 +19,56 @@ export default async function Agents() {
     ? `${process.env.FAIRPAY_BASE_URL.replace(/\/$/, '')}/api/mcp`
     : `${/^(localhost|127\.)/.test(host) ? 'http' : 'https'}://${host}/api/mcp`;
   return (
-    <div className="split">
-      <section className="stack" style={{ alignContent: 'start', gap: 22 }}>
-        <Link href="/" className="back">Back</Link>
+    <div className="page">
+      <div className="col">
+        <div className="panel stack" style={{ gap: 14 }}>
+          <div className="hero">
+            <div className="label">Fairpay for AI agents · MCP</div>
+            <div className="big" style={{ fontSize: 16, wordBreak: 'break-all', fontFamily: 'var(--font-mono), monospace' }}><span>{url}</span></div>
+            <div className="divider" />
+            <div className="foot"><Bot /> Streamable HTTP · 5 tools · bearer key optional</div>
+          </div>
+          <details className="ovd" open>
+            <summary>Guardrails, enforced by the server</summary>
+            <div className="ov">
+              <div className="k"><span>Funding</span><span>Always a human, in PayPal</span></div>
+              <div className="k"><span>Most an agent can release</span><span>The referee&rsquo;s recommendation</span></div>
+              <div className="k"><span>release_payment</span><span>destructiveHint: true</span></div>
+              <div className="k"><span>Record</span><span>Every call on the contract</span></div>
+            </div>
+          </details>
+          <a href="https://github.com/whatstask/Cairn" className="inset promo">
+            <span className="art"><Bot /></span>
+            <div><div>A governed buyer agent, built on Cairn</div><span className="link">github.com/whatstask/Cairn</span></div>
+          </a>
+          <Link href="/new" className="btn primary block">Try it as a person first</Link>
+        </div>
+      </div>
+      <div className="col">
         <h1>Hire with an Agent</h1>
         <p className="muted">
-          AI agents are starting to buy services for people. Fairpay lets them do it safely: an agent can hire and
-          pay on proof, but it can&rsquo;t fund anything without a human, and it can&rsquo;t pay more than the evidence supports.
+          AI agents are starting to buy services for people. Fairpay lets them do it safely: an agent can hire and pay on proof,
+          but it can&rsquo;t fund anything without a human, and it can&rsquo;t pay more than the evidence supports.
         </p>
-        <div className="panel big">
-          <span className="dim">MCP endpoint · streamable HTTP</span>
-          <b style={{ fontSize: 17, wordBreak: 'break-all', fontFamily: 'var(--mono)' }}>{url}</b>
-        </div>
-        <div className="tiles">
-          <div className="tile violet" style={{ cursor: 'default' }}><span className="ic">1</span>A human funds</div>
-          <div className="tile blue" style={{ cursor: 'default' }}><span className="ic">2</span>Pay only on proof</div>
-          <div className="tile indigo" style={{ cursor: 'default' }}><span className="ic">3</span>Release needs approval</div>
-          <div className="tile plum" style={{ cursor: 'default' }}><span className="ic">4</span>Every step on record</div>
-        </div>
-      </section>
-      <section className="stack" style={{ alignContent: 'start' }}>
-        <h2 style={{ paddingTop: 34 }}>Tools</h2>
-        <div>
+        <div className="panel">
+          <h2 style={{ marginBottom: 6 }}>Tools</h2>
           {TOOLS.map(([name, text]) => (
-            <div className="tx" key={name} style={{ gridTemplateColumns: '30px 1fr' }}>
+            <div className="tx" key={name} style={{ gridTemplateColumns: '32px 1fr' }}>
               <span className="av ai">✦</span>
               <span><span className="name mono" style={{ fontSize: 14 }}>{name}</span><br /><span className="sub">{text}</span></span>
             </div>
           ))}
         </div>
-        <h2 style={{ marginTop: 18 }}>A governed buyer, on Cairn</h2>
-        <p className="muted">
-          <code className="mono">agents/cairn-buyer</code> is an agent built on{' '}
-          <a href="https://github.com/whatstask/Cairn" style={{ textDecoration: 'underline' }}>Cairn</a> that hires through this endpoint.
-          Its spend is capped by a budget, every step is journaled, and it stops for your y/N before every payment.
-        </p>
-        <pre className="panel mono" style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12.5 }}>{`cd agents/cairn-buyer
+        <div className="panel stack">
+          <h2>Run the Cairn buyer</h2>
+          <p className="muted">Its model spend is capped by a budget, every step is journaled to <span className="mono">runs/</span>, and it stops for your y/N before every payment.</p>
+          <pre className="inset mono" style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12.5 }}>{`cd agents/cairn-buyer
 cargo run -- hire "A logo for my bakery, two milestones, $300, freelancer lina@example.com"
 cargo run -- settle <contract_id>`}</pre>
-        <pre className="panel mono" style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12.5 }}>{`curl -s ${url} -H 'content-type: application/json' \\
+          <pre className="inset mono" style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: 12.5 }}>{`curl -s ${url} -H 'content-type: application/json' \\
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`}</pre>
-      </section>
+        </div>
+      </div>
     </div>
   );
 }
