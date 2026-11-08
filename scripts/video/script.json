@@ -1,0 +1,12 @@
+[
+  { "id": "s01_title",    "text": "Paying a stranger for work is a trust problem. Freelancers start without knowing they'll be paid. Clients pay without knowing they'll get the work. This is Fairpay. Pay on proof, on PayPal." },
+  { "id": "s02_home",     "text": "Fairpay is milestone escrow with an AI referee. The client's money is held in PayPal before any work starts, and every escrow shows exactly where it stands. Agreed, funded, proven, paid, and settled." },
+  { "id": "s03_agent",    "text": "Starting takes one sentence. Fairpay's built-in agent, running on the Cairn framework, splits the job into milestones, writes criteria anyone can check, prices them, and opens the escrow." },
+  { "id": "s04_builder",  "text": "Or build it by hand. Every milestone has a price, and acceptance criteria. That's what the referee will check, so A.I. can sharpen vague ones into checks anyone can verify." },
+  { "id": "s05_funded",   "text": "Funding uses PayPal Orders with intent, authorize. The money is held, not taken, so the freelancer knows it really exists. Here, three hundred dollars was approved in the PayPal sandbox." },
+  { "id": "s06_submit",   "text": "Now the freelancer delivers. They submit a link, and the AI referee, Claude Opus five point five, reads it and checks every criterion. Met, partial, missing, or can't verify. Always with evidence." },
+  { "id": "s07_verdict",  "text": "It's fair to both sides. On the first milestone, it couldn't open the image files, so instead of guessing, it recommended fifty percent, and told the freelancer exactly how to earn the rest." },
+  { "id": "s08_settle",   "text": "The client asks the agent to settle. It pays only what the referee supports, and every payment pauses for a human. Approve, and exactly that amount is captured from the hold, and sent with PayPal Payouts." },
+  { "id": "s09_record",   "text": "Every hold, verdict and payout is on the record, for both sides. And any AI agent can use Fairpay over M.C.P. The guardrails live on the server. A human always funds, and an agent can never pay more than the referee recommended." },
+  { "id": "s10_close",    "text": "Anything that's never earned is voided back to the client. Fairpay. Get paid for the work you did. Pay only for the work you got." }
+]

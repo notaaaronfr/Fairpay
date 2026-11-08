@@ -12,3 +12,4 @@ agents/*/runs/
 .next-sim/
 .next-build/
 deploy/.env
+out/

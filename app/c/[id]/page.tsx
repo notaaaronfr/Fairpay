@@ -133,6 +133,21 @@ function MilestoneRow({ m, contractId, funded, who }: { m: Milestone; contractId
         </div>
       )}
 
+      {v && settled && (
+        <details className="crit referee-report">
+          <summary>✦ Referee · {v.release_percent}%</summary>
+          <div className="verdict" style={{ marginTop: 10 }}>
+            <p style={{ marginBottom: 6 }}>{v.summary}</p>
+            {v.checks.map((ch, i) => (
+              <div className="check" key={i}>
+                <span className={`mk ${ch.status}`}>{MARK[ch.status] ?? '?'}</span>
+                <span>{ch.criterion}<br /><span className="dim">{ch.evidence}</span></span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
       {v && !settled && (
         <div className="verdict">
           <div className="row between">
