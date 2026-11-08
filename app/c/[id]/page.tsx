@@ -1,14 +1,15 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { db, contract, milestones, events, type Milestone } from '../../../lib/db.ts';
+import { db, contract, milestones, events, agentRuns, type Milestone } from '../../../lib/db.ts';
+import { agentReady } from '../../../lib/agent.ts';
 import { heldUsd } from '../../../lib/escrow.ts';
 import { criteriaList, type Verdict } from '../../../lib/referee.ts';
 import { role, usd, ago, STATUS, modes } from '../../../lib/ui.ts';
-import { fund, submitWork, releasePayment, requestChanges, closeContract, rereview } from '../../../lib/actions.ts';
+import { fund, submitWork, releasePayment, requestChanges, closeContract, rereview, settleWithAgent, decideAgent } from '../../../lib/actions.ts';
 import { Submit } from '../../../components/Submit.tsx';
 import { BigMoney, Tracker, HoldCard, Activity, AV_COLORS } from '../../../components/Escrow.tsx';
 import { BlurText, Rise, Spotlight } from '../../../components/Motion.tsx';
-import { Lock, Back, Down } from '../../../components/Icons.tsx';
+import { Lock, Back, Down, Spark } from '../../../components/Icons.tsx';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +83,7 @@ export default async function ContractPage({ params, searchParams }: {
           </HoldCard>
           {who === 'freelancer' && !c.authorization_id && <div className="note">Not funded yet.</div>}
           {m.paypal === 'simulated' && <div className="note">PayPal simulated.</div>}
+          {who === 'client' && <Rise i={2}><AgentPanel contractId={c.id} runs={agentRuns(d, id)} canSettle={funded && ms.some(x => x.status === 'submitted')} /></Rise>}
           <Rise i={2}><Spotlight className="panel">
             <div className="panel-head"><h2>Record</h2></div>
             <Activity rows={log} />
@@ -189,4 +191,55 @@ function MilestoneRow({ m, contractId, funded, who }: { m: Milestone; contractId
       
     </article>
   );
+}
+
+function AgentPanel({ contractId, runs, canSettle }: { contractId: string; runs: ReturnType<typeof agentRuns>; canSettle: boolean }) {
+  const ready = agentReady();
+  const last = runs[0];
+  const waiting: { id: string; name: string; input: any }[] = last && last.status === 'awaiting_approval' ? JSON.parse(last.awaiting) : [];
+  return (
+    <Spotlight className="panel agent-card">
+      <div className="panel-head">
+        <h2>Agent</h2>
+        <span className="pill blue">Cairn{last ? ` · $${last.cost_usd.toFixed(3)}` : ''}</span>
+      </div>
+      {waiting.length > 0 ? (
+        <div className="stack" style={{ gap: 10 }}>
+          {waiting.map(w => (
+            <div key={w.id} className="approve">
+              <div className="row between">
+                <b style={{ fontWeight: 600 }}>{w.name === 'release_payment' ? 'Pay' : w.name.replace('_', ' ')}</b>
+                <span className="dim">{w.input?.amount_usd ? `$${Number(w.input.amount_usd).toFixed(2)}` : 'referee amount'}</span>
+              </div>
+              <div className="row" style={{ gap: 8 }}>
+                {(['yes', 'no'] as const).map(ans => (
+                  <form key={ans} action={decideAgent}>
+                    <input type="hidden" name="contract" value={contractId} />
+                    <input type="hidden" name="run" value={last.id} />
+                    <input type="hidden" name="call" value={w.id} />
+                    <input type="hidden" name="answer" value={ans} />
+                    <Submit className={`btn small ${ans === 'yes' ? 'blue' : ''}`} pending={ans === 'yes' ? 'Paying…' : '…'}>{ans === 'yes' ? 'Approve' : 'Deny'}</Submit>
+                  </form>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <form action={settleWithAgent}>
+          <input type="hidden" name="contract" value={contractId} />
+          <Submit className="btn primary block" pending="Agent working…" disabled={!ready.ok || !canSettle}><Spark />Settle with agent</Submit>
+          {!ready.ok && <div className="dim" style={{ marginTop: 8 }}>{ready.why}</div>}
+        </form>
+      )}
+      {last?.output && <p className="muted" style={{ marginTop: 12, fontSize: 14 }}>{short(last.output)}</p>}
+    </Spotlight>
+  );
+}
+
+/** The agent's reply, cut to its first sentence, without links or ids. */
+function short(text: string): string {
+  const clean = text.replace(/CONTRACT:\s*ctr_[a-z0-9]+/g, '').replace(/https?:\/\/\S+/g, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+  const first = clean.match(/^.*?[.!?](\s|$)/)?.[0] ?? clean;
+  return first.length > 160 ? first.slice(0, 157) + '…' : first.trim();
 }

@@ -53,16 +53,21 @@ The guardrails are enforced by the server, not by the agent's good behaviour:
 3. **Destructive is labelled.** `release_payment` carries `destructiveHint: true`, so agent frameworks that honour MCP annotations pause for human approval.
 4. Optional `FAIRPAY_AGENT_KEY` requires a bearer token.
 
-### A governed buyer agent, built on Cairn
+### Built-in agent, on Cairn
 
-[`agents/cairn-buyer`](agents/cairn-buyer) is a ~100-line agent on
-[Cairn](https://github.com/whatstask/Cairn) (Rust, Apache-2.0) that hires and pays through Fairpay's MCP server:
+Fairpay ships its own agent, built on [Cairn](https://github.com/whatstask/Cairn) (Rust, Apache-2.0),
+in [`agents/cairn-buyer`](agents/cairn-buyer). It's in the app, not just the terminal:
+
+- **New → Describe it:** one sentence ("Logo for my bakery, 2 milestones, $300, pay lina@…") — the agent splits it into milestones, criteria and prices and opens the escrow over MCP.
+- **Contract → Settle with agent:** it reads the referee's verdicts and releases what they support. Every payment pauses the Cairn run; an **Approve / Deny** card appears in the app, and the run resumes from Cairn's journal in a fresh process.
+
+Build it once with `npm run agent:build` (needs Rust). From a terminal:
 
 ```bash
 cd agents/cairn-buyer
-cargo run -- hire "A logo for my bakery, two milestones, \$300, freelancer lina@example.com"
+cargo run --release -- hire "A logo for my bakery, two milestones, \$300, freelancer lina@example.com"
 # → opens the escrow, returns the PayPal link for you to fund
-cargo run -- settle ctr_xxxxxxxx
+cargo run --release -- settle ctr_xxxxxxxx
 # → reads the referee's verdicts; asks YOU before every payment; pays only what the evidence supports
 ```
 

@@ -103,6 +103,11 @@ export function describe(e: Row): { ic: React.ReactNode; title: string; sub: str
     case 'payment.released': return { ic: <In />, title: 'Paid', sub: where, amount: `+${usd(d.amount)}`, tone: 'pos' };
     case 'payment.failed': return { ic: <In />, title: 'Payment failed', sub: d.error ?? '', tone: 'neg' };
     case 'contract.closed': return { ic: <Check />, title: 'Settled', sub: e.contract_title ?? '', amount: `−${usd(d.returnedToClient ?? 0)}` };
+    case 'agent.hired': return { ic: <Spark />, title: 'Agent opened', sub: `Cairn · $${Number(d.cost ?? 0).toFixed(3)}` };
+    case 'agent.waiting': return { ic: <Spark />, title: 'Agent asks to pay', sub: 'Needs approval', live: true };
+    case 'agent.done': return { ic: <Spark />, title: 'Agent done', sub: `Cairn · $${Number(d.cost ?? 0).toFixed(3)}` };
+    case 'agent.approved': return { ic: <Check />, title: 'Approved', sub: 'Agent payment' };
+    case 'agent.denied': return { ic: <Back />, title: 'Denied', sub: 'Agent payment' };
     case 'refund.failed': return { ic: <Down />, title: 'Return failed', sub: d.error ?? '', tone: 'neg' };
     default: return { ic: <Doc />, title: e.kind, sub: when(e.at) };
   }

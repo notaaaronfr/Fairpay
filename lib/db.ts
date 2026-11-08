@@ -57,6 +57,11 @@ CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT, contract_id TEXT NOT NULL, milestone_id TEXT,
   actor TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '{}', at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id TEXT PRIMARY KEY, contract_id TEXT, mode TEXT NOT NULL, brief TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL, output TEXT NOT NULL DEFAULT '', awaiting TEXT NOT NULL DEFAULT '[]',
+  cost_usd REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_ms ON milestones(contract_id, position);
 CREATE INDEX IF NOT EXISTS idx_ev ON events(contract_id, id);
 `;
@@ -101,12 +106,21 @@ export const recent = (d: DatabaseSync, limit = 30) =>
                LEFT JOIN milestones m ON m.id = e.milestone_id
               ORDER BY e.id DESC LIMIT ?`).all(limit) as unknown as (Event & { contract_title: string; milestone_title: string | null })[];
 
+export interface AgentRun {
+  id: string; contract_id: string | null; mode: 'hire' | 'settle'; brief: string;
+  status: string; output: string; awaiting: string; cost_usd: number; created_at: string; updated_at: string;
+}
+export const agentRuns = (d: DatabaseSync, contractId: string) =>
+  d.prepare('SELECT * FROM agent_runs WHERE contract_id=? ORDER BY created_at DESC').all(contractId) as unknown as AgentRun[];
+export const agentRun = (d: DatabaseSync, id: string) =>
+  d.prepare('SELECT * FROM agent_runs WHERE id=?').get(id) as unknown as AgentRun | undefined;
+
 export function log(d: DatabaseSync, e: { contract: string; milestone?: string | null; actor: Event['actor']; kind: string; detail?: unknown }) {
   d.prepare('INSERT INTO events (contract_id, milestone_id, actor, kind, detail, at) VALUES (?,?,?,?,?,?)')
     .run(e.contract, e.milestone ?? null, e.actor, e.kind, JSON.stringify(e.detail ?? {}), now());
 }
 
-export function update(d: DatabaseSync, table: 'contracts' | 'milestones', id: string, fields: Record<string, unknown>) {
+export function update(d: DatabaseSync, table: 'contracts' | 'milestones' | 'agent_runs', id: string, fields: Record<string, unknown>) {
   const keys = Object.keys(fields);
   if (!keys.length) return;
   d.prepare(`UPDATE ${table} SET ${keys.map(k => `${k}=?`).join(', ')} WHERE id=?`)

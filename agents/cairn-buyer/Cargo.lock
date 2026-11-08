@@ -346,7 +346,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fairpay-cairn-buyer"
+name = "fairpay-agent"
 version = "0.1.0"
 dependencies = [
  "cairn-ai",

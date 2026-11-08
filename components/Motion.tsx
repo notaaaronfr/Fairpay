@@ -56,7 +56,7 @@ export function Rise({ children, i = 0, className, style, as = 'div' }: {
   return (
     <M className={className} style={style}
       initial={calm ? false : { opacity: 0, y: 14 }}
-      whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-40px' }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, delay: Math.min(i, 10) * 0.06, ease: EASE }}>
       {children}
     </M>

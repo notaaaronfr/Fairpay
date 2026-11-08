@@ -104,7 +104,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
           </HoldCard>
 
           <Rise i={3}><Spotlight className="panel" id="activity">
-            <div className="panel-head"><h2>Activity</h2><Link href="/#activity" className="more">All ›</Link></div>
+            <div className="panel-head"><h2>Activity</h2><Link href="/activity" className="more">All ›</Link></div>
             <Activity rows={feed} link limit={7} />
           </Spotlight></Rise>
         </div>

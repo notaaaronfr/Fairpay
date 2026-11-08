@@ -9,3 +9,4 @@ data/*.db-*
 *.tsbuildinfo
 agents/*/target/
 agents/*/runs/
+.next-sim/

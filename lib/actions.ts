@@ -116,3 +116,33 @@ export async function closeContract(formData: FormData) {
   catch (e) { return back(id, { error: msg(e) }); }
   back(id, { done: `Contract closed. $${returned.toFixed(2)} returned to the client.` });
 }
+
+/* ── the built-in Cairn agent ──────────────────────────────────────────── */
+
+export interface Hired { error?: string; output?: string }
+
+export async function hireWithAgent(_: Hired | null, formData: FormData): Promise<Hired> {
+  const brief = String(formData.get('brief') ?? '').trim();
+  if (brief.length < 12) return { error: 'Say what, how much, and who gets paid.' };
+  const { hire } = await import('./agent.ts');
+  const { contractId, result } = await hire(db(), brief, await origin());
+  if (!contractId) return { error: result.status === 'error' ? result.output : undefined, output: result.output || 'The agent did not open an escrow.' };
+  revalidatePath('/');
+  redirect(`/c/${contractId}?done=${encodeURIComponent('Opened by the agent. Fund it to start.')}` as any);
+}
+
+export async function settleWithAgent(formData: FormData) {
+  const id = String(formData.get('contract'));
+  const { settle } = await import('./agent.ts');
+  const r = await settle(db(), id, await origin());
+  if (r.status === 'error' || r.status === 'failed') return back(id, { error: r.output });
+  back(id);
+}
+
+export async function decideAgent(formData: FormData) {
+  const id = String(formData.get('contract'));
+  const { decide } = await import('./agent.ts');
+  const r = await decide(db(), String(formData.get('run')), String(formData.get('call')), formData.get('answer') === 'yes', await origin());
+  if (r.status === 'error' || r.status === 'failed') return back(id, { error: r.output });
+  back(id);
+}

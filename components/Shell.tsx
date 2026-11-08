@@ -18,7 +18,7 @@ export function Header({ theme, role, live }: { theme: 'light' | 'dark'; role: '
         <Link href="/" aria-current={at(path, '/')}>Escrows</Link>
         <Link href="/new" aria-current={at(path, '/new')}>New</Link>
         <Link href="/agents" aria-current={at(path, '/agents')}>Agents</Link>
-        <Link href="/#activity">Activity</Link>
+        <Link href="/activity" aria-current={at(path, "/activity")}>Activity</Link>
       </nav>
       <div className="tools">
         <form action={setTheme}>
@@ -28,7 +28,7 @@ export function Header({ theme, role, live }: { theme: 'light' | 'dark'; role: '
             {theme === 'dark' ? <Sun /> : <Moon />}
           </button>
         </form>
-        <Link href="/#activity" className="round" aria-label="Activity" title={live ? 'PayPal sandbox connected' : 'PayPal simulated'}>
+        <Link href="/activity" className="round" aria-label="Activity" title={live ? 'PayPal sandbox connected' : 'PayPal simulated'}>
           <Bell /><span className={`dot ${live ? 'on' : ''}`} />
         </Link>
         <form action={setRole}>
