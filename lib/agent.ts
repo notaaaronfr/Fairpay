@@ -22,7 +22,7 @@ const CANDIDATES = [
 ].filter(Boolean) as string[];
 
 export function agentBinary(): string | null {
-  for (const c of CANDIDATES) { const p = resolve(c); if (existsSync(p)) return p; }
+  for (const c of CANDIDATES) { const p = resolve(/*turbopackIgnore: true*/ c); if (existsSync(p)) return p; }
   return null;
 }
 
@@ -45,7 +45,7 @@ function exec(args: string[], origin: string): Promise<AgentResult> {
       env: {
         ...process.env,
         FAIRPAY_MCP_URL: `${origin}/api/mcp`,
-        CAIRN_RUNS_DIR: resolve(process.env.CAIRN_RUNS_DIR ?? 'data/agent-runs'),
+        CAIRN_RUNS_DIR: resolve(/*turbopackIgnore: true*/ process.env.CAIRN_RUNS_DIR ?? 'data/agent-runs'),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });

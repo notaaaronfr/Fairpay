@@ -10,3 +10,4 @@ data/*.db-*
 agents/*/target/
 agents/*/runs/
 .next-sim/
+.next-build/

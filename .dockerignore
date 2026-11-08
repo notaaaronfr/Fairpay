@@ -1,0 +1,10 @@
+node_modules
+.next
+.next-*
+data
+agents/*/target
+agents/*/runs
+.env
+.env*.local
+.git
+docs
