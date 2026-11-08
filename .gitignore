@@ -1,0 +1,11 @@
+node_modules/
+.next/
+next-env.d.ts
+data/*.db
+data/*.db-*
+.env
+.env*.local
+.DS_Store
+*.tsbuildinfo
+agents/*/target/
+agents/*/runs/

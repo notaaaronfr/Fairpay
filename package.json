@@ -1,0 +1,27 @@
+{
+  "name": "fairpay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI-refereed milestone escrow on PayPal: money is held, work is checked, payment is released.",
+  "license": "MIT",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "node --no-warnings --test test/*.test.ts",
+    "demo": "node --no-warnings lib/seed.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "typescript": "7.0.2"
+  }
+}
