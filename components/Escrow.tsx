@@ -1,143 +1,137 @@
 import Link from 'next/link';
-import type { Event } from '../lib/db.ts';
+import type { Contract, Milestone, Event } from '../lib/db.ts';
 import { usd } from '../lib/ui.ts';
+import { Mark } from './Brand.tsx';
+import { Arrow, Down, Up, In, Lock, Doc, Spark, Check, Back } from './Icons.tsx';
 
 type Row = Event & { contract_title?: string; milestone_title?: string | null };
 const parse = (raw: string) => { try { return JSON.parse(raw); } catch { return {}; } };
-
-/* ── statement lines ───────────────────────────────────────────────────── */
-
-export function describe(e: Row): { av: string; avClass: string; title: string; sub: string; amount?: string; tone?: string; note?: string } {
-  const d = parse(e.detail);
-  const where = e.milestone_title ?? e.contract_title ?? '';
-  switch (e.kind) {
-    case 'contract.created': return { av: '+', avClass: '', title: 'Contract created', sub: e.contract_title ?? `${d.milestones} milestones`, amount: usd(d.total), note: 'total' };
-    case 'funding.started': return { av: 'P', avClass: 'pp', title: 'Sent to PayPal to fund', sub: e.contract_title ?? '', amount: usd(d.amount), note: d.mode };
-    case 'funding.held': return { av: 'P', avClass: 'pp', title: 'Funds held', sub: d.payer ? `Authorized by ${d.payer}` : 'Authorized in PayPal', amount: usd(d.amountUsd), tone: 'pos', note: 'held' };
-    case 'funding.cancelled': return { av: 'P', avClass: 'pp', title: 'Funding cancelled', sub: e.contract_title ?? '' };
-    case 'work.submitted': return { av: '↑', avClass: '', title: 'Work submitted', sub: where };
-    case 'referee.verdict': return { av: '✦', avClass: 'ai', title: `Referee: ${String(d.recommendation ?? '').replace('_', ' ')}`, sub: `${where} · ${d.met}/${d.of} criteria met`, amount: `${d.percent}%`, tone: d.percent >= 95 ? 'pos' : d.percent > 0 ? '' : 'neg', note: 'suggested' };
-    case 'referee.failed': return { av: '✦', avClass: 'ai', title: 'Referee failed', sub: d.error ?? '' };
-    case 'changes.requested': return { av: '↺', avClass: '', title: 'Changes requested', sub: where };
-    case 'payment.released': return { av: 'P', avClass: 'pp', title: 'Paid out', sub: `${where}${d.followedReferee ? ' · as the referee suggested' : ''}`, amount: `+${usd(d.amount)}`, tone: 'pos', note: (d.status ?? '').toLowerCase() };
-    case 'payment.failed': return { av: 'P', avClass: 'pp', title: 'Payment failed', sub: d.error ?? '', tone: 'neg' };
-    case 'contract.closed': return { av: '✓', avClass: '', title: 'Settled', sub: e.contract_title ?? 'Unreleased funds voided', amount: d.returnedToClient ? `−${usd(d.returnedToClient)}` : usd(0), note: 'returned to client' };
-    case 'refund.failed': return { av: 'P', avClass: 'pp', title: 'Returning funds failed', sub: d.error ?? '', tone: 'neg' };
-    default: return { av: '•', avClass: '', title: e.kind, sub: '' };
-  }
-}
-
-const dayLabel = (iso: string) => {
-  const d = new Date(iso), t = new Date();
-  const y = new Date(t); y.setDate(t.getDate() - 1);
-  const f = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
-  return d.toDateString() === t.toDateString() ? `Today, ${f}` : d.toDateString() === y.toDateString() ? `Yesterday, ${f}` : f;
+const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+const when = (iso: string) => {
+  const d = new Date(iso), t = new Date(), y = new Date(t); y.setDate(t.getDate() - 1);
+  const day = d.toDateString() === t.toDateString() ? 'Today' : d.toDateString() === y.toDateString() ? 'Yesterday'
+    : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  return `${day} · ${time(iso)}`;
 };
 
-export function Activity({ rows, link = false, limit }: { rows: Row[]; link?: boolean; limit?: number }) {
-  const shown = limit ? rows.slice(0, limit) : rows;
-  if (!shown.length) return <p className="dim" style={{ padding: '14px 4px' }}>Nothing yet. Holds, verdicts and payouts will appear here.</p>;
-  let last = '';
+/* ── the huge balance ──────────────────────────────────────────────────── */
+
+export function BigMoney({ value }: { value: number }) {
+  const [w, c] = Number(value || 0).toFixed(2).split('.');
+  return <div className="big-money">${Number(w).toLocaleString('en-US')}<span className="c">.{c}</span></div>;
+}
+
+/* ── the yellow live tracker ───────────────────────────────────────────── */
+
+export function Tracker({ c, ms, log }: { c: Contract; ms: Milestone[]; log: Row[] }) {
+  const first = (k: string) => log.filter(e => e.kind === k).sort((a, b) => a.id - b.id)[0]?.at;
+  const steps = [
+    { name: 'Agreed', at: c.created_at },
+    { name: 'Funded', at: first('funding.held') },
+    { name: 'Proven', at: first('work.submitted') },
+    { name: 'Paid', at: first('payment.released') },
+    { name: 'Settled', at: first('contract.closed') },
+  ];
+  const reached = steps.filter(s => s.at).length;
+  const paidCount = ms.filter(m => m.status === 'released').length;
+  const lastVerdict = ms.map(m => m.review && JSON.parse(m.review)).filter(Boolean).pop();
+  const fill = `calc((100% - 12px) * ${Math.max(0, reached - 1) / (steps.length - 1)})`;
+  const live = c.status !== 'closed';
+  const label = !c.authorization_id ? 'Waiting for funding' : c.status === 'closed' ? 'Settled' : 'Held in PayPal';
+
   return (
-    <div>
-      {shown.map(e => {
-        const day = dayLabel(e.at);
-        const head = day !== last ? (last = day, <div className="day" key={`d-${e.id}`}>{day}</div>) : null;
-        const x = describe(e);
-        const body = (
-          <>
-            <span className="t">{new Date(e.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
-            <span className={`av ${x.avClass}`}>{x.av}</span>
-            <span style={{ minWidth: 0 }}><span className="name">{x.title}</span><br /><span className="sub">{x.sub}</span></span>
-            <span className={`amt ${x.tone ?? ''}`}>{x.amount ?? ''}{x.note && <small>{x.note}</small>}</span>
-          </>
-        );
-        return [head, link
-          ? <Link className="tx" key={e.id} href={`/c/${e.contract_id}`}>{body}</Link>
-          : <div className="tx" key={e.id}>{body}</div>];
-      })}
+    <Link href={`/c/${c.id}`} className="track">
+      <span className="go" aria-hidden><Arrow /></span>
+      <div className="title">{c.title} {live && <span className="live">{label}</span>}</div>
+      <div className="body">
+        <div className="count">{paidCount}<small>of {ms.length} paid</small></div>
+        <div className="line">
+          <span className="fill" style={{ width: fill }} />
+          {steps.map((s, i) => (
+            <span key={s.name} className={`st ${i < reached - 1 || (i === reached - 1 && !live) ? 'done' : i === reached - 1 ? 'now' : ''}`}>
+              <i />{s.name}<span>{s.at ? time(s.at) : '—'}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="foot">
+        <span>{c.freelancer_name} · PayPal payee · {lastVerdict ? `referee ${lastVerdict.checks.filter((x: any) => x.status === 'met').length}/${lastVerdict.checks.length} met` : 'no submission yet'}</span>
+        <span>Amount <b>{usd(c.total_usd)}</b> &nbsp; {c.authorization_id ? `✓ Auth ${c.authorization_id.slice(-4)}` : 'Not authorized yet'}</span>
+      </div>
+    </Link>
+  );
+}
+
+/* ── the PayPal hold, drawn as a card ──────────────────────────────────── */
+
+export function HoldCard({ c, held, paid, children }: { c: Contract | null; held: number; paid: number; children?: React.ReactNode }) {
+  const pct = c?.total_usd ? Math.min(100, (paid / c.total_usd) * 100) : 0;
+  return (
+    <div className="panel">
+      <div className="panel-head"><h2>PayPal hold</h2>{c && <Link href={`/c/${c.id}`} className="more">Manage ›</Link>}</div>
+      <div className="holdcard">
+        <div className="plastic">
+          <div className="lbl">ESCROW</div>
+          <div className="emv" />
+          <div className="num">···· {c?.authorization_id ? c.authorization_id.slice(-4) : '0000'}</div>
+          <span className="big-mark"><Mark size={130} /></span>
+        </div>
+        <div className="stack" style={{ gap: 6 }}>
+          <div className="dim" style={{ fontStyle: 'italic' }}>Authorized · USD</div>
+          <div className="dim" style={{ fontStyle: 'italic' }}>Released on proof</div>
+          <div style={{ fontSize: 18, fontStyle: 'italic' }}>{usd(paid)} of {usd(c?.total_usd ?? 0)}</div>
+          <div className="meter"><i style={{ width: `${pct}%` }} /></div>
+          <div className="dim" style={{ fontStyle: 'italic', marginTop: 6 }}>{usd(held)} still held{c?.hold_expires ? ` · until ${c.hold_expires.slice(0, 10)}` : ''}</div>
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ── metrics: money held and paid over time ────────────────────────────── */
+/* ── recent activity ───────────────────────────────────────────────────── */
 
-export function series(rows: Row[]) {
-  const asc = [...rows].sort((a, b) => a.id - b.id);
-  let held = 0, paid = 0;
-  const pts: { at: number; held: number; paid: number }[] = [];
-  for (const e of asc) {
-    const d = parse(e.detail);
-    if (e.kind === 'funding.held') held += Number(d.amountUsd) || 0;
-    else if (e.kind === 'payment.released') { held -= Number(d.amount) || 0; paid += Number(d.amount) || 0; }
-    else if (e.kind === 'contract.closed') held -= Number(d.returnedToClient) || 0;
-    else continue;
-    pts.push({ at: Date.parse(e.at), held: Math.max(0, held), paid });
+export function describe(e: Row): { ic: React.ReactNode; title: string; sub: string; amount?: string; tone?: string; live?: boolean } {
+  const d = parse(e.detail);
+  const where = e.milestone_title ?? e.contract_title ?? '';
+  switch (e.kind) {
+    case 'contract.created': return { ic: <Doc />, title: `Escrow created · ${e.contract_title ?? ''}`, sub: when(e.at), amount: usd(d.total) };
+    case 'funding.started': return { ic: <Lock />, title: 'Sent to PayPal to fund', sub: `${e.contract_title ?? ''}`, amount: usd(d.amount), live: true };
+    case 'funding.held': return { ic: <Lock />, title: 'Funds held in PayPal', sub: d.payer ? `${when(e.at)} · ${d.payer}` : when(e.at), amount: `+${usd(d.amountUsd)}`, tone: 'pos' };
+    case 'funding.cancelled': return { ic: <Back />, title: 'Funding cancelled', sub: when(e.at) };
+    case 'work.submitted': return { ic: <Up />, title: `Work submitted · ${where}`, sub: when(e.at), live: true };
+    case 'referee.verdict': return { ic: <Spark />, title: `Referee: ${String(d.recommendation ?? '').replace('_', ' ')}`, sub: `${where} · ${d.met}/${d.of} criteria met`, amount: `${d.percent}%` };
+    case 'referee.failed': return { ic: <Spark />, title: 'Referee failed', sub: d.error ?? '' };
+    case 'changes.requested': return { ic: <Back />, title: `Changes requested · ${where}`, sub: when(e.at) };
+    case 'payment.released': return { ic: <In />, title: `Paid out · ${where}`, sub: `${when(e.at)} · PayPal Payouts`, amount: `+${usd(d.amount)}`, tone: 'pos' };
+    case 'payment.failed': return { ic: <In />, title: 'Payment failed', sub: d.error ?? '', tone: 'neg' };
+    case 'contract.closed': return { ic: <Check />, title: `Settled · ${e.contract_title ?? ''}`, sub: when(e.at), amount: `−${usd(d.returnedToClient ?? 0)}` };
+    case 'refund.failed': return { ic: <Down />, title: 'Returning funds failed', sub: d.error ?? '', tone: 'neg' };
+    default: return { ic: <Doc />, title: e.kind, sub: when(e.at) };
   }
-  return pts;
 }
 
-export function Metrics({ rows }: { rows: Row[] }) {
-  const pts = series(rows);
-  const W = 720, H = 240, L = 8, R = 8, T = 18, B = 30;
-  const now = Date.now();
-  const start = pts.length ? Math.min(pts[0].at, now - 6 * 864e5) : now - 6 * 864e5;
-  const full = [{ at: start, held: 0, paid: 0 }, ...pts, ...(pts.length ? [{ ...pts[pts.length - 1], at: now }] : [{ at: now, held: 0, paid: 0 }])];
-  const max = Math.max(100, ...full.map(p => Math.max(p.held, p.paid))) * 1.15;
-  const x = (t: number) => L + ((t - start) / Math.max(1, now - start)) * (W - L - R);
-  const y = (v: number) => T + (1 - v / max) * (H - T - B);
-  const step = (key: 'held' | 'paid') => full.map((p, i) => {
-    const px = x(p.at), py = y(p[key]);
-    if (i === 0) return `M${px.toFixed(1)},${py.toFixed(1)}`;
-    const prev = full[i - 1];
-    const mid = (x(prev.at) + px) / 2;
-    return `C${mid.toFixed(1)},${y(prev[key]).toFixed(1)} ${mid.toFixed(1)},${py.toFixed(1)} ${px.toFixed(1)},${py.toFixed(1)}`;
-  }).join(' ');
-  const paidLine = step('paid');
-  const heldLine = step('held');
-  const lastP = full[full.length - 1];
-  const totalPaid = lastP.paid;
-  const peak = full.reduce((m, p) => p.paid + p.held > m.paid + m.held ? p : m, full[0]);
-  const days = Array.from({ length: 7 }, (_, i) => start + (i * (now - start)) / 6);
-
+export function Activity({ rows, link = false, limit }: { rows: Row[]; link?: boolean; limit?: number }) {
+  const shown = limit ? rows.slice(0, limit) : rows;
+  if (!shown.length) return <p className="dim" style={{ padding: '10px 0', fontStyle: 'italic' }}>Nothing yet. Holds, verdicts and payouts appear here.</p>;
   return (
-    <div className="panel" style={{ position: 'relative', overflow: 'hidden' }}>
-      <div className="chart-head">
-        <div><b>{usd(totalPaid)}</b><span className="delta">paid on proof</span></div>
-        <div className="legend">
-          <span><i style={{ background: 'var(--accent)' }} />Paid out</span>
-          <span><i style={{ background: 'var(--sky)' }} />Held in PayPal</span>
-        </div>
-      </div>
-      <svg className="chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Money paid and held over time">
-        <defs>
-          <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="var(--accent)" stopOpacity=".28" />
-            <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
-          </linearGradient>
-          <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="1" fill="var(--line-2)" />
-          </pattern>
-        </defs>
-        <rect x="0" y="0" width={W} height={H - B} fill="url(#dots)" opacity=".7" />
-        <path d={`${paidLine} L${x(now)},${H - B} L${L},${H - B} Z`} fill="url(#area)" />
-        <path d={heldLine} className="ln2" />
-        <path d={paidLine} className="ln" />
-        {peak.paid + peak.held > 0 && <line x1={x(peak.at)} x2={x(peak.at)} y1={T} y2={H - B} stroke="var(--accent)" strokeDasharray="3 5" opacity=".6" />}
-        <circle cx={x(lastP.at)} cy={y(lastP.paid)} r="5.5" className="dot" />
-        {days.map((t, i) => (
-          <text key={i} x={i === 0 ? L : i === 6 ? W - R : x(t)} y={H - 8} className="ax" textAnchor={i === 0 ? 'start' : i === 6 ? 'end' : 'middle'}>
-            {new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-          </text>
-        ))}
-      </svg>
-      {peak.paid + peak.held > 0 && (
-        <div className="inset" style={{ position: 'absolute', right: 22, top: 74, padding: '10px 14px', fontSize: 13, backdropFilter: 'blur(6px)' }}>
-          <div>{new Date(peak.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
-          <div style={{ fontSize: 15 }}>{usd(peak.held + peak.paid)}</div>
-          <div className="dim">Peak in escrow</div>
-        </div>
-      )}
+    <div>
+      {shown.map(e => {
+        const x = describe(e);
+        const body = (
+          <>
+            <span className="ic">{x.ic}</span>
+            <span style={{ minWidth: 0 }}>
+              <div className="ttl">{x.title}</div>
+              <div className="sub">{x.live && <span className="ld" />}{x.sub}</div>
+            </span>
+            <span className={`amt ${x.tone ?? ''}`}>{x.amount ?? ''}</span>
+          </>
+        );
+        return link
+          ? <Link key={e.id} href={`/c/${e.contract_id}`} className="act-row">{body}</Link>
+          : <div key={e.id} className="act-row">{body}</div>;
+      })}
     </div>
   );
 }
@@ -146,19 +140,19 @@ export function Metrics({ rows }: { rows: Row[] }) {
 
 export const FAQS: [string, string][] = [
   ['Is the money really held before work starts?', 'Yes. Funding creates a PayPal order with intent AUTHORIZE: the client approves the full amount, PayPal holds it, and nothing is captured until a milestone is released.'],
-  ['What does the AI referee do?', 'It reads the freelancer’s submission — the note and the linked page or repo — and checks each acceptance criterion as met, partial, missing or unverifiable, with the evidence. Then it suggests how much to release.'],
+  ['What does the AI referee do?', 'It reads the submission — the note and the linked page or repo — and checks each acceptance criterion as met, partial, missing or unverifiable, with evidence. Then it suggests how much to release.'],
   ['Can the AI pay anyone?', 'No. The referee only recommends. Money moves when a person clicks Release; agents using the API can never release more than the referee recommended.'],
   ['What happens to money that is never released?', 'When the contract is closed, the rest of the PayPal authorization is voided, so the client is never charged for it.'],
-  ['How is the freelancer paid?', 'Exactly the released amount is captured from the hold and sent with PayPal Payouts to the freelancer’s PayPal email.'],
 ];
 
 export function Faqs() {
   return (
     <div className="panel faq" id="faq">
-      <h2 style={{ marginBottom: 16 }}>FAQs</h2>
-      {FAQS.map(([q, a], i) => (
-        <details key={q} open={i === 0}><summary>{q}</summary><p>{a}</p></details>
-      ))}
+      <div className="panel-head"><h2>How it works</h2></div>
+      {FAQS.map(([q, a], i) => <details key={q} open={i === 0}><summary>{q}</summary><p>{a}</p></details>)}
     </div>
   );
 }
+
+export const AV_COLORS = ['#0070e0', '#003087', '#009cde', '#7a5cff', '#0a9a5b', '#e0791a'];
+export const initials = (s: string) => s.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();

@@ -1,34 +1,30 @@
+import Link from 'next/link';
 import { NewContractForm } from '../../components/NewContractForm.tsx';
 import { Faqs } from '../../components/Escrow.tsx';
-import { Spark, Shield, Wallet } from '../../components/Icons.tsx';
+import { Back } from '../../components/Icons.tsx';
 
 export default function New() {
   return (
-    <div className="page" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 400px)' }}>
-      <div className="col">
-        <div className="stack" style={{ gap: 10 }}>
-          <h1>Start an escrow</h1>
-          <div className="steps">
-            <span className="s now"><span className="c">1</span>Agree</span><span className="gap">··</span>
-            <span className="s"><span className="c">2</span>Fund</span><span className="gap">··</span>
-            <span className="s"><span className="c">3</span>Prove</span><span className="gap">··</span>
-            <span className="s"><span className="c">4</span>Pay</span><span className="gap">··</span>
-            <span className="s"><span className="c">5</span>Settle</span>
+    <>
+      <section className="balance-row">
+        <div>
+          <div className="welcome">New escrow · Agree → Fund → Prove → Pay → Settle <span className="chip">Step 1 of 5</span></div>
+          <div className="big-money" style={{ fontSize: 'clamp(44px, 6vw, 84px)' }}>Pay on proof<span className="c">.</span></div>
+        </div>
+        <div className="actions"><Link href="/" className="act"><Back />Escrows</Link></div>
+      </section>
+      <div className="grid">
+        <div className="col"><NewContractForm /></div>
+        <div className="col">
+          <div className="track" style={{ cursor: 'default' }}>
+            <div className="title">How the money moves <span className="live">PayPal</span></div>
+            <div className="body"><div className="count">3<small>steps</small></div>
+              <div style={{ fontStyle: 'italic', fontSize: 15 }}>The total is held in PayPal. The AI referee checks each delivery. You release exactly what&rsquo;s proven — the rest goes back.</div>
+            </div>
           </div>
+          <Faqs />
         </div>
-        <NewContractForm />
       </div>
-      <div className="col">
-        <div className="hero">
-          <div className="label">How the money moves</div>
-          <div className="big"><span>Held → Proven → Paid</span></div>
-          <div className="divider" />
-          <div className="foot"><Wallet /> PayPal holds the total. Nothing is taken until you release it.</div>
-        </div>
-        <div className="item"><div><div>Write criteria a stranger could check</div><div className="dim">“Deployed to a public URL” beats “looks good”. The AI can sharpen them for you.</div></div><span className="ic"><Spark /></span></div>
-        <div className="item"><div><div>The freelancer sees the money first</div><div className="dim">Once funded, they know it exists before they start.</div></div><span className="ic"><Shield /></span></div>
-        <Faqs />
-      </div>
-    </div>
+    </>
   );
 }

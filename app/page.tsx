@@ -1,119 +1,115 @@
 import Link from 'next/link';
-import { db, contracts, milestones, recent } from '../lib/db.ts';
+import { db, contracts, milestones, recent, events } from '../lib/db.ts';
 import { heldUsd } from '../lib/escrow.ts';
-import { usd, STATUS, role, modes } from '../lib/ui.ts';
-import { Activity, Metrics, Faqs } from '../components/Escrow.tsx';
-import { RoleTabs } from '../components/RoleTabs.tsx';
-import { Wallet, Bot, External, Shield, Doc } from '../components/Icons.tsx';
+import { usd, STATUS, role } from '../lib/ui.ts';
+import { BigMoney, Tracker, HoldCard, Activity, Faqs, AV_COLORS, initials } from '../components/Escrow.tsx';
+import { Plus, Lock, Up, In } from '../components/Icons.tsx';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab = 'all' } = await searchParams;
   const d = db();
   const who = await role();
-  const m = modes();
   const all = contracts(d).map(c => {
     const ms = milestones(d, c.id);
     return { c, ms, held: heldUsd(c, ms), paid: ms.reduce((s, x) => s + x.paid_usd, 0) };
   });
-  const lead = all.find(x => x.c.status !== 'closed') ?? all[0];
-  const totals = all.reduce((t, x) => ({ held: t.held + x.held, paid: t.paid + x.paid, back: t.back + x.c.refunded_usd }), { held: 0, paid: 0, back: 0 });
-  const events = recent(d, 200);
+  const lead = all.find(x => x.c.status === 'funded') ?? all.find(x => x.c.status !== 'closed') ?? all[0];
+  const held = all.reduce((s, x) => s + x.held, 0);
+  const today = new Date().toDateString();
+  const feed = recent(d, 60);
+  const paidToday = feed.filter(e => e.kind === 'payment.released' && new Date(e.at).toDateString() === today)
+    .reduce((s, e) => s + (Number(JSON.parse(e.detail).amount) || 0), 0);
 
-  const next = !lead ? null
-    : !lead.c.authorization_id ? (who === 'client' ? `Fund ${usd(lead.c.total_usd)} in PayPal` : 'Waiting for the client to fund')
-    : lead.ms.some(x => x.status === 'submitted') ? (who === 'client' ? 'Review the referee’s verdict' : 'Waiting for the client to release')
-    : lead.c.status === 'closed' ? 'Settled' : (who === 'client' ? 'Waiting for work' : 'Submit your next milestone');
+  const funded = all.filter(x => x.c.status === 'funded');
+  const settled = all.filter(x => x.c.status === 'closed');
+  const pct = (n: number) => all.length ? Math.round((n / all.length) * 100) : 0;
+  const rows = tab === 'funded' ? funded : tab === 'settled' ? settled : all;
+  const toFund = all.find(x => !x.c.authorization_id && x.c.status !== 'closed');
+  const toReview = all.find(x => x.ms.some(m => m.status === 'submitted'));
+  const toSubmit = all.find(x => x.c.status === 'funded' && x.ms.some(m => m.status === 'open' || m.status === 'changes_requested'));
 
   return (
-    <div className="page">
-      {/* ── left: the action panel ── */}
-      <div className="col">
-        <div className="panel stack" style={{ gap: 14 }}>
-          <RoleTabs role={who} />
-          <div className="two">
-            <div className="mini"><small>Held in PayPal</small><b><span className="coin held sm">$</span>{usd(totals.held)}</b></div>
-            <div className="mini"><small>Paid on proof</small><b><span className="coin paid sm">✓</span>{usd(totals.paid)}</b></div>
+    <>
+      <section className="balance-row">
+        <div>
+          <div className="welcome">
+            Welcome back{who === 'client' ? ', client' : ', freelancer'} · Total held in escrow
+            <span className="chip pos">▲ {usd(paidToday)} paid today</span>
+            <span>USD</span>
           </div>
+          <BigMoney value={held} />
+        </div>
+        <div className="actions">
+          <Link href="/new" className="act"><Plus />New escrow</Link>
+          <Link href={toFund ? `/c/${toFund.c.id}` : '/new'} className="act"><Lock />Fund</Link>
+          <Link href={toSubmit ? `/c/${toSubmit.c.id}` : '/'} className="act"><Up />Submit work</Link>
+          <Link href={toReview ? `/c/${toReview.c.id}` : '/'} className="act"><In />Release</Link>
+        </div>
+      </section>
 
-          {lead ? (
-            <Link href={`/c/${lead.c.id}`} className="hero" style={{ display: 'block' }}>
-              <div className="label">{who === 'client' ? 'Your escrow with' : 'Your escrow from'} {who === 'client' ? lead.c.freelancer_name : lead.c.client_name}</div>
-              <div className="big"><span>{usd(lead.held || lead.c.total_usd)}</span><span className="chip">{STATUS[lead.c.status].label}</span></div>
-              <div style={{ fontSize: 14, opacity: .9, marginTop: 4 }}>{lead.c.title}</div>
-              <div className="divider" />
-              <div className="foot"><Wallet /> {next}</div>
-            </Link>
-          ) : (
-            <Link href="/new" className="hero" style={{ display: 'block' }}>
-              <div className="label">Hire someone and pay only on proof</div>
-              <div className="big"><span>$0.00 held</span><span className="chip">PayPal</span></div>
-              <div className="divider" />
-              <div className="foot"><Wallet /> Start your first escrow</div>
+      <div className="grid">
+        <div className="col">
+          {lead ? <Tracker c={lead.c} ms={lead.ms} log={events(d, lead.c.id)} /> : (
+            <Link href="/new" className="track">
+              <div className="title">Your first escrow <span className="live">Ready</span></div>
+              <div className="body"><div className="count">0<small>escrows</small></div><div style={{ fontStyle: 'italic' }}>Hire someone. Hold the money in PayPal. Pay only on proof.</div></div>
             </Link>
           )}
 
-          {lead && (
-            <details className="ovd" open>
-              <summary>Escrow overview</summary>
-              <div className="ov">
-                <div className="k"><span>Contract total</span><span>{usd(lead.c.total_usd)}</span></div>
-                <div className="k"><span>Held in PayPal</span><span>{usd(lead.held)}</span></div>
-                <div className="k"><span>Paid to {lead.c.freelancer_name}</span><span className="pos">{usd(lead.paid)}</span></div>
-                <div className="k"><span>Milestones</span><span>{lead.ms.filter(x => x.status === 'released').length} of {lead.ms.length} paid</span></div>
-              </div>
-            </details>
-          )}
-
-          <div className="inset promo">
-            <span className="art"><Bot /></span>
-            <div>
-              <div>Let an AI agent hire for you — on proof</div>
-              <Link href="/agents" className="link">Fairpay for agents <External /></Link>
+          <div className="panel">
+            <div className="panel-head">
+              <h2>Escrows</h2>
+              <nav className="tabs" aria-label="Filter">
+                <Link href="/?tab=all" aria-current={tab === 'all'}>All</Link>
+                <Link href="/?tab=funded" aria-current={tab === 'funded'}>Funded<span>{pct(funded.length)}%</span></Link>
+                <Link href="/?tab=settled" aria-current={tab === 'settled'}>Settled<span>{pct(settled.length)}%</span></Link>
+              </nav>
             </div>
+            <div className="split-bar">
+              <i style={{ flex: Math.max(1, funded.length), background: 'var(--sun)' }} />
+              <i style={{ flex: Math.max(1, all.length - funded.length), background: 'var(--line-2)' }} />
+            </div>
+            <table className="t">
+              <thead><tr><th>Escrow</th><th className="hide-sm">Milestones</th><th className="hide-sm">Held</th><th>Paid</th><th>Value</th></tr></thead>
+              <tbody>
+                {rows.map(({ c, ms, held, paid }, i) => (
+                  <tr key={c.id}>
+                    <td>
+                      <Link href={`/c/${c.id}`} className="who">
+                        <span className="av" style={{ background: AV_COLORS[i % AV_COLORS.length] }}>{initials(c.freelancer_name)}</span>
+                        <span>{c.title}<small>{c.freelancer_name} · {STATUS[c.status].label}</small></span>
+                      </Link>
+                    </td>
+                    <td className="hide-sm">{ms.filter(m => m.status === 'released').length}/{ms.length}</td>
+                    <td className="hide-sm">{usd(held)}</td>
+                    <td className={paid ? 'pos' : ''}>{paid ? `+${usd(paid)}` : '—'}</td>
+                    <td><b style={{ fontWeight: 600 }}>{usd(c.total_usd)}</b></td>
+                  </tr>
+                ))}
+                {!rows.length && <tr><td colSpan={5} className="dim">Nothing here yet. <Link href="/new" className="more">Start an escrow ›</Link></td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="col">
+          <HoldCard c={lead?.c ?? null} held={lead?.held ?? 0} paid={lead?.paid ?? 0}>
+            <div className="row between" style={{ marginTop: 10 }}>
+              <span style={{ fontStyle: 'italic' }}>Pay only on proof</span>
+              <span className="switch" role="switch" aria-checked="true" aria-label="Pay only on proof (always on)" />
+            </div>
+          </HoldCard>
+
+          <div className="panel" id="activity">
+            <div className="panel-head"><h2>Recent activity</h2><Link href="/?tab=all#activity" className="more">View all ›</Link></div>
+            <Activity rows={feed} link limit={7} />
           </div>
 
-          <Link href={lead ? `/c/${lead.c.id}` : '/new'} className="btn primary block">
-            {lead ? (lead.c.authorization_id ? 'Open escrow' : who === 'client' ? 'Fund with PayPal' : 'Open escrow') : 'Start an escrow'}
-          </Link>
-        </div>
-
-        <div className="panel stack" style={{ gap: 12 }}>
-          <h3>Your escrows</h3>
-          {all.length ? all.map(({ c, held, paid }) => (
-            <Link key={c.id} href={`/c/${c.id}`} className="item">
-              <div style={{ minWidth: 0 }}>
-                <div>{c.title}</div>
-                <div className="dim">{c.client_name} → {c.freelancer_name} · {usd(paid)} paid · {usd(held)} held</div>
-              </div>
-              <span className="ic"><Doc /></span>
-            </Link>
-          )) : <p className="dim">None yet.</p>}
-          <div className="item"><div><div>Protected by PayPal</div><div className="dim">Authorized, not captured, until a person releases it.</div></div><span className="ic"><Shield /></span></div>
+          <Faqs />
         </div>
       </div>
-
-      {/* ── right: stats, metrics, activity, faqs ── */}
-      <div className="col">
-        <h2>Escrow stats</h2>
-        <div className="two">
-          <div className="stat"><small>Total held in PayPal</small><b><span className="coin held">$</span>{usd(totals.held)}</b></div>
-          <div className="stat"><small>Total paid on proof</small><b><span className="coin paid">✓</span>{usd(totals.paid)}</b></div>
-        </div>
-
-        <div className="row between">
-          <h2>Metrics</h2>
-          <span className="pill blue">{m.paypal === 'simulated' ? 'Simulated PayPal' : m.paypalLabel}</span>
-        </div>
-        <Metrics rows={events} />
-
-        <div className="panel" id="activity">
-          <div className="row between"><h2>Activity</h2><span className="dim">{usd(totals.back)} returned to clients</span></div>
-          <Activity rows={events} link limit={12} />
-        </div>
-
-        <Faqs />
-      </div>
-    </div>
+    </>
   );
 }

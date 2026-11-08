@@ -6,9 +6,8 @@ import { criteriaList, type Verdict } from '../../../lib/referee.ts';
 import { role, usd, ago, STATUS, modes } from '../../../lib/ui.ts';
 import { fund, submitWork, releasePayment, requestChanges, closeContract, rereview } from '../../../lib/actions.ts';
 import { Submit } from '../../../components/Submit.tsx';
-import { Activity, Metrics } from '../../../components/Escrow.tsx';
-import { RoleTabs } from '../../../components/RoleTabs.tsx';
-import { Wallet, Shield, Spark } from '../../../components/Icons.tsx';
+import { BigMoney, Tracker, HoldCard, Activity, AV_COLORS } from '../../../components/Escrow.tsx';
+import { Lock, Back, Down } from '../../../components/Icons.tsx';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,108 +30,71 @@ export default async function ContractPage({ params, searchParams }: {
   const log = events(d, id);
   const who = await role();
   const m = modes();
-
   const paid = ms.reduce((s, x) => s + x.paid_usd, 0);
   const held = heldUsd(c, ms);
   const funded = c.status === 'funded';
-  const stage = c.status === 'closed' ? 6 : ms.some(x => x.status === 'released') ? 4 : ms.some(x => x.submitted_at) ? 3 : c.authorization_id ? 2 : 1;
-  const STEPS = ['Agree', 'Fund', 'Prove', 'Pay', 'Settle'];
 
   return (
-    <div className="page">
-      {/* ── left: the money ── */}
-      <div className="col">
-        <div className="panel stack" style={{ gap: 14 }}>
-          <RoleTabs role={who} />
-          <div className="two">
-            <div className="mini"><small>Held in PayPal</small><b><span className="coin held sm">$</span>{usd(held)}</b></div>
-            <div className="mini"><small>Paid to {c.freelancer_name.split(' ')[0]}</small><b><span className="coin paid sm">✓</span>{usd(paid)}</b></div>
+    <>
+      <section className="balance-row">
+        <div>
+          <div className="welcome">
+            {c.client_name} → {c.freelancer_name} · {c.status === 'closed' ? 'Paid on proof' : 'Held in PayPal'}
+            <span className={`chip ${paid ? 'pos' : ''}`}>{paid ? `▲ ${usd(paid)} paid` : STATUS[c.status].label}</span>
+            <span>USD</span>
           </div>
-
-          <div className="hero">
-            <div className="label">{c.client_name} → {c.freelancer_name}</div>
-            <div className="big"><span>{usd(c.status === 'closed' ? paid : held || c.total_usd)}</span><span className="chip">{STATUS[c.status].label}</span></div>
-            <div style={{ fontSize: 14, opacity: .9, marginTop: 4 }}>{c.title}</div>
-            <div className="divider" />
-            <div className="foot">
-              <Wallet />
-              {c.authorization_id ? <>Held by PayPal · <span className="mono" style={{ opacity: .85 }}>{c.authorization_id}</span></> : 'Not funded yet'}
-            </div>
-          </div>
-
-          <div className="steps" aria-label="Progress">
-            {STEPS.map((s, i) => (
-              <span key={s} style={{ display: 'contents' }}>
-                {i > 0 && <span className="gap">··</span>}
-                <span className={`s ${i + 1 < stage ? 'done' : i + 1 === stage ? 'now' : ''}`}><span className="c">{i + 1 < stage ? '✓' : i + 1}</span>{s}</span>
-              </span>
-            ))}
-          </div>
-
-          {done && <div className="note ok" role="status">{done}</div>}
-          {error && <div className="note err" role="alert">{error}</div>}
-
-          <details className="ovd" open>
-            <summary>Escrow overview</summary>
-            <div className="ov">
-              <div className="k"><span>Contract total</span><span>{usd(c.total_usd)}</span></div>
-              <div className="k"><span>Held in PayPal</span><span>{usd(held)}</span></div>
-              <div className="k"><span>Paid out</span><span className="pos">{usd(paid)}</span></div>
-              <div className="k"><span>Returned to client</span><span>{usd(c.refunded_usd)}</span></div>
-              <div className="k"><span>Payouts go to</span><span className="mono">{c.freelancer_email}</span></div>
-              {c.payer && <div className="k"><span>Funded by</span><span className="mono">{c.payer}</span></div>}
-              {c.hold_expires && <div className="k"><span>Hold valid until</span><span>{c.hold_expires.slice(0, 10)}</span></div>}
-            </div>
-          </details>
-
-          {c.scope && <div className="inset promo"><span className="art"><Spark /></span><div className="muted" style={{ fontSize: 14 }}>{c.scope}</div></div>}
-
+          <BigMoney value={c.status === 'closed' ? paid : held || c.total_usd} />
+        </div>
+        <div className="actions">
+          <Link href="/" className="act"><Back />Escrows</Link>
           {who === 'client' && !c.authorization_id && c.status !== 'closed' && (
             <form action={fund}>
               <input type="hidden" name="contract" value={c.id} />
-              <Submit className="btn primary block" pending="Opening PayPal…">Fund {usd(c.total_usd)} with PayPal</Submit>
+              <Submit className="act" pending="Opening PayPal…"><Lock />Fund {usd(c.total_usd)}</Submit>
             </form>
           )}
           {who === 'client' && funded && held > 0 && (
             <form action={closeContract}>
               <input type="hidden" name="contract" value={c.id} />
-              <Submit className="btn block" pending="Returning…">Close &amp; return {usd(held)} to the client</Submit>
+              <Submit className="act" pending="Returning…"><Down />Close &amp; return {usd(held)}</Submit>
             </form>
           )}
-          {who === 'freelancer' && !c.authorization_id && <div className="note">Wait until the client has funded it — the money held in PayPal is your guarantee.</div>}
-          {m.paypal === 'simulated' && <p className="dim">PayPal is simulated (no keys): ids start with SIM- and no money moves.</p>}
         </div>
+      </section>
 
-        <div className="panel">
-          <h3>Record</h3>
-          <p className="dim" style={{ marginTop: 4 }}>Every hold, verdict and payment — both sides see the same.</p>
-          <Activity rows={log} />
-        </div>
-      </div>
+      {(done || error) && <div className={`note ${done ? 'ok' : 'err'}`} role={done ? 'status' : 'alert'} style={{ marginBottom: 20 }}>{done ?? error}</div>}
 
-      {/* ── right: the work ── */}
-      <div className="col">
-        <div className="row between">
-          <div className="stack" style={{ gap: 4 }}>
-            <Link href="/" className="dim">← All escrows</Link>
-            <h1>{c.title}</h1>
+      <div className="grid">
+        <div className="col">
+          <Tracker c={c} ms={ms} log={log} />
+          <div className="panel">
+            <div className="panel-head"><h2>Milestones</h2><span className="dim" style={{ fontStyle: 'italic' }}>{ms.filter(x => x.status === 'released').length} of {ms.length} paid</span></div>
+            {c.scope && <p className="muted" style={{ fontStyle: 'italic', marginBottom: 8 }}>{c.scope}</p>}
+            {ms.map(x => <MilestoneRow key={x.id} m={x} contractId={c.id} funded={funded} who={who} />)}
           </div>
-          <span className={`pill ${TONE[STATUS[c.status].tone] ?? ''}`}>{STATUS[c.status].label}</span>
         </div>
-        <div className="two">
-          <div className="stat"><small>Held in PayPal</small><b><span className="coin held">$</span>{usd(held)}</b></div>
-          <div className="stat"><small>Paid on proof</small><b><span className="coin paid">✓</span>{usd(paid)}</b></div>
+
+        <div className="col">
+          <HoldCard c={c} held={held} paid={paid}>
+            <div className="stack" style={{ gap: 6, marginTop: 10, fontSize: 13.5, fontStyle: 'italic' }}>
+              <div className="row between"><span className="dim">Payouts to</span><span className="mono">{c.freelancer_email}</span></div>
+              {c.payer && <div className="row between"><span className="dim">Funded by</span><span className="mono">{c.payer}</span></div>}
+              <div className="row between"><span className="dim">Returned</span><span>{usd(c.refunded_usd)}</span></div>
+            </div>
+          </HoldCard>
+          {who === 'freelancer' && !c.authorization_id && <div className="note">Wait until the client has funded it — the money held in PayPal is your guarantee.</div>}
+          {m.paypal === 'simulated' && <div className="note">PayPal is simulated (no keys): ids start with SIM- and no money moves.</div>}
+          <div className="panel">
+            <div className="panel-head"><h2>Record</h2><span className="dim" style={{ fontStyle: 'italic' }}>Both sides see the same</span></div>
+            <Activity rows={log} />
+          </div>
         </div>
-        <h2>Milestones</h2>
-        {ms.map(x => <MilestoneCard key={x.id} m={x} contractId={c.id} funded={funded} who={who} />)}
-        {log.some(e => e.kind === 'funding.held') && <><h2>Metrics</h2><Metrics rows={log} /></>}
-        <div className="item"><div><div>Protected by PayPal</div><div className="dim">Authorized, not captured, until a person releases it. Unreleased money is voided back.</div></div><span className="ic"><Shield /></span></div>
       </div>
-    </div>
+    </>
   );
 }
 
-function MilestoneCard({ m, contractId, funded, who }: { m: Milestone; contractId: string; funded: boolean; who: 'client' | 'freelancer' }) {
+function MilestoneRow({ m, contractId, funded, who }: { m: Milestone; contractId: string; funded: boolean; who: 'client' | 'freelancer' }) {
   const s = !funded && m.status === 'open' ? { label: 'Waiting for funding', tone: '' } : STATUS[m.status];
   const v: Verdict | null = m.review ? JSON.parse(m.review) : null;
   const suggested = v ? Math.round(m.amount_usd * v.release_percent) / 100 : m.amount_usd;
@@ -140,18 +102,18 @@ function MilestoneCard({ m, contractId, funded, who }: { m: Milestone; contractI
   const settled = m.status === 'released' || m.status === 'cancelled';
 
   return (
-    <article className="panel ms">
-      <div className="ms-head">
-        <div className="row" style={{ flexWrap: 'nowrap', gap: 12 }}>
-          <span className="n">{m.position}</span>
-          <h3 style={{ fontSize: 18 }}>{m.title}</h3>
+    <article className="ms">
+      <div className="row between" style={{ flexWrap: 'nowrap' }}>
+        <div className="who">
+          <span className="av" style={{ background: AV_COLORS[(m.position - 1) % AV_COLORS.length] }}>{m.position}</span>
+          <span style={{ fontStyle: 'italic', fontSize: 17 }}>{m.title}<small style={{ display: 'block' }} className="dim">{criteriaList(m.criteria).length} criteria</small></span>
         </div>
-        <span className="price">{usd(m.amount_usd)}</span>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontStyle: 'italic', fontSize: 17, fontWeight: 600 }}>{usd(m.amount_usd)}</div>
+          <span className={`pill ${TONE[s.tone] ?? ''}`}>{s.label}</span>
+        </div>
       </div>
-      <div className="row between" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-        <ul className="criteria">{criteriaList(m.criteria).map((c, i) => <li key={i}>{c}</li>)}</ul>
-        <span className={`pill ${TONE[s.tone] ?? ''}`} style={{ flex: 'none' }}>{s.label}</span>
-      </div>
+      <ul className="criteria">{criteriaList(m.criteria).map((c, i) => <li key={i}>{c}</li>)}</ul>
 
       {m.status === 'released' && (
         <div className="note ok">
@@ -161,22 +123,21 @@ function MilestoneCard({ m, contractId, funded, who }: { m: Milestone; contractI
       )}
 
       {(m.submission_note || m.submission_url) && (
-        <div className="inset">
-          <div className="dim">Submitted {m.submitted_at ? ago(m.submitted_at) : ''}</div>
+        <div className="verdict" style={{ padding: 14 }}>
+          <div className="dim" style={{ fontStyle: 'italic' }}>Submitted {m.submitted_at ? ago(m.submitted_at) : ''}</div>
           {m.submission_note && <p style={{ marginTop: 6 }}>{m.submission_note}</p>}
-          {m.submission_url && <a className="mono link" style={{ marginTop: 6, wordBreak: 'break-all' }} href={m.submission_url} target="_blank" rel="noreferrer noopener">{m.submission_url}</a>}
+          {m.submission_url && <a className="more mono" style={{ marginTop: 6, wordBreak: 'break-all' }} href={m.submission_url} target="_blank" rel="noreferrer noopener">{m.submission_url}</a>}
         </div>
       )}
 
       {v && !settled && (
-        <div className="inset" style={{ padding: 18 }}>
+        <div className="verdict">
           <div className="row between">
             <div className="row" style={{ gap: 10 }}>
-              <span className="coin back sm">✦</span>
-              <b style={{ fontWeight: 500 }}>AI Referee</b>
+              <b style={{ fontWeight: 600, fontStyle: 'italic' }}>✦ AI Referee</b>
               <span className={`pill ${REC[v.recommendation].tone}`}>{REC[v.recommendation].label} · {v.release_percent}%</span>
             </div>
-            <span className="dim">{v.confidence} confidence{v.read_url ? ' · read the link' : m.submission_url ? ' · link unreadable' : ''}</span>
+            <span className="dim" style={{ fontStyle: 'italic' }}>{v.confidence} confidence{v.read_url ? ' · read the link' : m.submission_url ? ' · link unreadable' : ''}</span>
           </div>
           <p style={{ margin: '12px 0 6px' }}>{v.summary}</p>
           {v.checks.map((ch, i) => (
@@ -185,18 +146,15 @@ function MilestoneCard({ m, contractId, funded, who }: { m: Milestone; contractI
               <span>{ch.criterion}<br /><span className="dim">{ch.evidence}</span></span>
             </div>
           ))}
-          {v.message_to_freelancer && (
-            <div className="check"><span className="mk unverifiable">✎</span><span><span className="dim">Note for the freelancer</span><br />{v.message_to_freelancer}</span></div>
-          )}
+          {v.message_to_freelancer && <div className="check"><span className="mk unverifiable">✎</span><span><span className="dim">Note for the freelancer</span><br />{v.message_to_freelancer}</span></div>}
           <div className="dim" style={{ marginTop: 8 }}>{v.model === 'offline' ? 'Offline referee (no AI key)' : v.model}</div>
-
           {who === 'client' && m.status === 'submitted' && (
             <div className="stack" style={{ marginTop: 16, gap: 10 }}>
               <form action={releasePayment} className="row" style={{ alignItems: 'end' }}>
                 <input type="hidden" name="contract" value={contractId} />
                 <input type="hidden" name="milestone" value={m.id} />
                 <label style={{ width: 160 }}>Release (USD)<input name="amount" inputMode="decimal" defaultValue={suggested.toFixed(2)} /></label>
-                <Submit className="btn primary" pending="Paying via PayPal…">Release &amp; pay with PayPal</Submit>
+                <Submit className="btn blue" pending="Paying via PayPal…">Release &amp; pay with PayPal</Submit>
               </form>
               <form action={requestChanges}>
                 <input type="hidden" name="contract" value={contractId} />
@@ -218,15 +176,13 @@ function MilestoneCard({ m, contractId, funded, who }: { m: Milestone; contractI
       )}
 
       {canSubmit && (
-        <form action={submitWork} className="hero stack" style={{ gap: 12 }}>
+        <form action={submitWork} className="submitbox">
           <input type="hidden" name="contract" value={contractId} />
           <input type="hidden" name="milestone" value={m.id} />
-          <div className="label">{m.status === 'changes_requested' ? 'The client asked for changes — submit again when it’s fixed' : 'Submit your work — the AI referee checks it against every criterion'}</div>
+          <div style={{ fontStyle: 'italic', fontSize: 16 }}>{m.status === 'changes_requested' ? 'Changes requested — submit again when it’s fixed' : 'Submit your work — the AI referee checks every criterion'}</div>
           <input name="url" type="url" placeholder="Link to the work (page, repo, Figma, doc)" aria-label="Link to the work" />
-          <textarea name="note" rows={3} placeholder="What you delivered, criterion by criterion" aria-label="What you delivered"
-                    style={{ background: 'rgba(255,255,255,.14)', borderColor: 'rgba(255,255,255,.3)', color: '#fff' }} />
-          <div className="divider" style={{ margin: 0 }} />
-          <div><Submit className="btn sun" pending="The referee is checking…">Submit for review</Submit></div>
+          <textarea name="note" rows={3} placeholder="What you delivered, criterion by criterion" aria-label="What you delivered" />
+          <div><Submit className="btn primary" pending="The referee is checking…">Submit for review</Submit></div>
         </form>
       )}
       {who === 'freelancer' && !funded && !settled && <p className="dim">You can submit once the client has funded the contract.</p>}

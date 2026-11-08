@@ -1,12 +1,11 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Space_Grotesk, Space_Mono } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import { cookies } from 'next/headers';
-import { modes } from '../lib/ui.ts';
-import { Sidebar, TopBar } from '../components/Shell.tsx';
+import { modes, role } from '../lib/ui.ts';
+import { Header } from '../components/Shell.tsx';
 
-const grotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-grotesk', display: 'swap' });
-const mono = Space_Mono({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-mono', display: 'swap' });
+const sans = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['200', '300', '400', '500', '600'], style: ['normal', 'italic'], variable: '--font-sans', display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'Fairpay — pay on proof',
@@ -18,15 +17,14 @@ export default async function Layout({ children }: { children: React.ReactNode }
   const theme = (await cookies()).get('fp_theme')?.value === 'dark' ? 'dark' : 'light';
   const m = modes();
   return (
-    <html lang="en" data-theme={theme} className={`${grotesk.variable} ${mono.variable}`}>
+    <html lang="en" data-theme={theme} className={sans.variable}>
       <body>
-        <div className="app">
-          <Sidebar theme={theme} />
-          <main>
-            <TopBar paypal={m.paypalLabel} paypalOn={m.paypal !== 'simulated'} ai={m.aiLabel} aiOn={m.ai} />
-            {children}
-            <div className="foot">Fairpay holds money with PayPal and releases it only on a person&rsquo;s click. The AI referee recommends; it never pays.</div>
-          </main>
+        <div className="wrap">
+          <Header theme={theme} role={await role()} live={m.paypal !== 'simulated'} />
+          {children}
+          <div className="pagefoot">
+            {m.paypalLabel} · {m.aiLabel} · Fairpay holds money with PayPal and releases it only on a person&rsquo;s click. The AI referee recommends; it never pays.
+          </div>
         </div>
       </body>
     </html>
