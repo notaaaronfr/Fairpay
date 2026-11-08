@@ -13,3 +13,5 @@ agents/*/runs/
 .next-build/
 deploy/.env
 out/
+AGENTS.md
+CLAUDE.md
