@@ -1,0 +1,29 @@
+# Fairpay on a shared server, fully isolated: its own project, network,
+# volume and port; non-root; resource-capped. Touches nothing else.
+#   docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build
+name: fairpay
+
+services:
+  app:
+    build: { context: .., dockerfile: Dockerfile }
+    image: fairpay:latest
+    container_name: fairpay-app
+    restart: unless-stopped
+    env_file: .env
+    ports: ["${FAIRPAY_PORT:-8790}:3000"]
+    volumes: [fairpay-data:/data]
+    networks: [fairpay]
+    mem_limit: 1g
+    cpus: 1.5
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  fairpay: {}
+
+volumes:
+  fairpay-data: {}

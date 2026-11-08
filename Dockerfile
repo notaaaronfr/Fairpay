@@ -30,6 +30,7 @@ COPY --from=web /app/node_modules ./node_modules
 COPY --from=web /app/.next ./.next
 COPY --from=web /app/public ./public
 COPY --from=agent /src/target/release/fairpay-agent /app/bin/fairpay-agent
-RUN mkdir -p /data
+RUN mkdir -p /data && chown -R node:node /data /app
+USER node
 EXPOSE 3000
 CMD ["sh", "-c", "npx next start -p ${PORT:-3000}"]
