@@ -92,7 +92,7 @@ export function cancelFunding(d: DatabaseSync, id: string) {
 /* ── submit and referee ────────────────────────────────────────────────── */
 
 export async function submit(d: DatabaseSync, milestoneId: string, s: { note: string; url?: string },
-                             fetcher: typeof fetch = fetch): Promise<Verdict> {
+                             fetcher: typeof fetch = fetch, opts: { offline?: string } = {}): Promise<Verdict> {
   const m = milestone(d, milestoneId) ?? fail('No such milestone.');
   const c = contract(d, m.contract_id)!;
   if (c.status !== 'funded') fail('Work can be submitted once the contract is funded — that is the freelancer\'s guarantee.');
@@ -103,11 +103,11 @@ export async function submit(d: DatabaseSync, milestoneId: string, s: { note: st
 
   update(d, 'milestones', m.id, { submission_note: note, submission_url: url, submitted_at: now(), status: 'submitted' });
   log(d, { contract: c.id, milestone: m.id, actor: 'freelancer', kind: 'work.submitted', detail: { url, note: note.slice(0, 280) } });
-  return review(d, m.id, fetcher);
+  return review(d, m.id, fetcher, opts);
 }
 
 /** Run (or re-run) the referee on the current submission. */
-export async function review(d: DatabaseSync, milestoneId: string, fetcher: typeof fetch = fetch): Promise<Verdict> {
+export async function review(d: DatabaseSync, milestoneId: string, fetcher: typeof fetch = fetch, opts: { offline?: string } = {}): Promise<Verdict> {
   const m = milestone(d, milestoneId) ?? fail('No such milestone.');
   const c = contract(d, m.contract_id)!;
   const urlText = await readDeliverable(m.submission_url, fetcher);
@@ -116,7 +116,7 @@ export async function review(d: DatabaseSync, milestoneId: string, fetcher: type
     v = await referee({
       contractTitle: c.title, scope: c.scope,
       milestone: { title: m.title, criteria: m.criteria, amountUsd: m.amount_usd },
-      note: m.submission_note ?? '', url: m.submission_url, urlText,
+      note: m.submission_note ?? '', url: m.submission_url, urlText, offline: opts.offline,
     });
   } catch (e) {
     log(d, { contract: c.id, milestone: m.id, actor: 'referee', kind: 'referee.failed', detail: { error: (e as Error).message } });

@@ -29,7 +29,7 @@ use serde_json::{json, Value};
 const SYSTEM: &str = "You are Fairpay's procurement agent. You hire people for your principal \
 through Fairpay, a pay-on-proof escrow on PayPal. \
 HIRING: split the work into 1-4 milestones, each with 2-5 short, checkable acceptance criteria and a USD amount that \
-adds up to the budget; then call create_escrow once. Never invent an email: use the one given, or stop and say it is missing. \
+adds up to the budget; then call create_escrow once. The CLIENT funds it by opening the fund_url in PayPal; the freelancer is only paid later, on proof. Never invent an email: use the one given, or stop and say it is missing. \
 SETTLING: call get_escrow first. For each milestone with status submitted, read the referee verdict: \
 if it recommends release or partial, call release_payment with no amount (that pays the referee's recommendation); \
 if it recommends request_changes, call request_changes with its message. Never pay an unsubmitted milestone. \
@@ -44,9 +44,21 @@ async fn agent() -> Result<Agent, Box<dyn std::error::Error>> {
     // Effects come from Fairpay's MCP annotations: get_escrow reads,
     // release_payment is destructive and therefore waits for approval.
     let tools = fairpay.tools(ToolOptions::default()).await?;
-    let spec = std::env::var("CAIRN_MODEL").unwrap_or_else(|_| "anthropic:claude-opus-5-5".into());
-    // Priced so the budget is enforceable. $ per million tokens; set your own.
-    let model: Arc<dyn Model> = Arc::new(Priced::new(cairn::models::from_spec(&spec)?, Pricing::new(4.0, 20.0)));
+    // Free first: K2 Horizon (IFM) at $0, then Claude only if K2 fails or
+    // gives an unusable answer. Priced so the budget is enforceable.
+    let claude_spec = std::env::var("CAIRN_MODEL").unwrap_or_else(|_| "anthropic:claude-opus-5-5".into());
+    let has_k2 = std::env::var("K2_API_KEY").map(|k| !k.is_empty()).unwrap_or(false);
+    let has_claude = std::env::var("ANTHROPIC_API_KEY").map(|k| !k.is_empty()).unwrap_or(false) || std::env::var("CAIRN_MODEL").is_ok();
+    let mut chain: Vec<Arc<dyn Model>> = Vec::new();
+    if has_k2 {
+        if std::env::var("K2_BASE_URL").is_err() { std::env::set_var("K2_BASE_URL", "https://api.ifm.ai/v1"); }
+        let k2 = std::env::var("K2_MODEL").unwrap_or_else(|_| "IFM/K2-Horizon-375B-A23B".into());
+        chain.push(Arc::new(Priced::new(cairn::models::from_spec(&format!("compat:k2:{k2}"))?, Pricing::new(0.0, 0.0))));
+    }
+    if has_claude || chain.is_empty() {
+        chain.push(Arc::new(Priced::new(cairn::models::from_spec(&claude_spec)?, Pricing::new(4.0, 20.0))));
+    }
+    let model: Arc<dyn Model> = if chain.len() == 1 { chain.remove(0) } else { Arc::new(FallbackModel::new(chain)) };
     let runs = std::env::var("CAIRN_RUNS_DIR").unwrap_or_else(|_| "runs".into());
     Ok(Agent::builder("fairpay-agent")
         .model(model)

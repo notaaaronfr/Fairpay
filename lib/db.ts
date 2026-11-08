@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   status TEXT NOT NULL, output TEXT NOT NULL DEFAULT '', awaiting TEXT NOT NULL DEFAULT '[]',
   cost_usd REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ai_calls (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT NOT NULL, kind TEXT NOT NULL, at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_calls ON ai_calls(at);
 CREATE INDEX IF NOT EXISTS idx_ms ON milestones(contract_id, position);
 CREATE INDEX IF NOT EXISTS idx_ev ON events(contract_id, id);
 `;

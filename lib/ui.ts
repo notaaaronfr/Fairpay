@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { config } from './paypal.ts';
-import { usingModel, MODEL } from './referee.ts';
+import { usingModel, modelLabel } from './referee.ts';
 
 export type Role = 'client' | 'freelancer';
 export const role = async (): Promise<Role> =>
@@ -13,7 +13,7 @@ export function modes() {
   const pp = config().mode;
   return {
     paypal: pp, paypalLabel: pp === 'simulated' ? 'PayPal: simulated' : pp === 'sandbox' ? 'PayPal sandbox' : 'PayPal live',
-    ai: usingModel(), aiLabel: usingModel() ? `Referee: ${MODEL}` : 'Referee: offline',
+    ai: usingModel(), aiLabel: `Referee: ${modelLabel()}`,
   };
 }
 

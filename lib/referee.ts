@@ -8,11 +8,16 @@ import Anthropic from '@anthropic-ai/sdk';
  * It never moves money. The client reads the verdict and decides; the verdict
  * is shown to both sides, so the freelancer sees exactly why.
  *
- * Without ANTHROPIC_API_KEY it runs an offline referee (keyword evidence
- * matching) so the whole app works with no keys at all — and says so.
+ * Models, cheapest first: K2 Horizon from IFM (free; K2_API_KEY), then
+ * Claude (ANTHROPIC_API_KEY) only if K2 fails or isn't configured. With
+ * neither it runs an offline referee (keyword evidence matching) so the app
+ * works with no keys at all — and says so.
  */
 
 export const MODEL = process.env.FAIRPAY_MODEL ?? 'claude-opus-5-5';
+export const K2_MODEL = process.env.K2_MODEL ?? 'IFM/K2-Horizon-375B-A23B';
+const K2_URL = (process.env.K2_BASE_URL ?? 'https://api.ifm.ai/v1').replace(/\/$/, '');
+const k2Key = () => process.env.K2_API_KEY ?? process.env.K2HORIZON;
 
 export type CheckStatus = 'met' | 'partial' | 'missing' | 'unverifiable';
 export interface Check { criterion: string; status: CheckStatus; evidence: string }
@@ -27,7 +32,53 @@ export interface Verdict {
   read_url: boolean;
 }
 
-export const usingModel = () => !!process.env.ANTHROPIC_API_KEY && process.env.FAIRPAY_AI !== 'offline';
+export const usingModel = () => (!!k2Key() || !!process.env.ANTHROPIC_API_KEY) && process.env.FAIRPAY_AI !== 'offline';
+/** True when the first model tried costs nothing. */
+export const freeFirst = () => !!k2Key() && process.env.FAIRPAY_AI !== 'offline';
+export const modelLabel = () => !usingModel() ? 'offline' : freeFirst() ? 'K2 Horizon (free) → Claude' : MODEL;
+
+/**
+ * One structured call: K2 first (free), Claude if K2 fails. Returns the parsed
+ * JSON and the model that produced it.
+ */
+async function structured(o: { system: string; prompt: string; schema: any; effort: 'low' | 'medium'; maxTokens: number }): Promise<{ value: any; model: string }> {
+  if (freeFirst()) {
+    try {
+      const res = await fetch(`${K2_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${k2Key()}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: K2_MODEL, max_tokens: Math.max(o.maxTokens, 6000),   // K2 thinks before answering
+          messages: [{ role: 'system', content: o.system }, { role: 'user', content: o.prompt }],
+          response_format: { type: 'json_schema', json_schema: { name: 'output', strict: true, schema: o.schema } },
+        }),
+        signal: AbortSignal.timeout(90_000),
+      });
+      if (!res.ok) throw new Error(`K2 HTTP ${res.status}`);
+      const data: any = await res.json();
+      const choice = data.choices?.[0];
+      if (choice?.finish_reason !== 'stop') throw new Error(`K2 stopped on ${choice?.finish_reason}`);
+      const value = JSON.parse(String(choice.message?.content ?? '').trim());
+      const missing = (o.schema.required ?? []).filter((k: string) => !(k in value));
+      if (missing.length) throw new Error(`K2 reply missing ${missing.join(', ')}`);
+      return { value, model: K2_MODEL };
+    } catch (e) {
+      if (!process.env.ANTHROPIC_API_KEY) throw e;
+      console.warn(`referee: K2 failed, using Claude — ${String((e as Error).message).slice(0, 160)}`);
+    }
+  }
+  const client = new Anthropic();
+  const res: any = await client.beta.messages.create({
+    model: MODEL, max_tokens: o.maxTokens,
+    betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
+    system: o.system,
+    output_config: { effort: o.effort, format: { type: 'json_schema', schema: o.schema } },
+    messages: [{ role: 'user', content: o.prompt }],
+  } as any);
+  if (res.stop_reason === 'refusal') throw new Error('The model declined this request.');
+  const text = (res.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('');
+  return { value: JSON.parse(text), model: res.model ?? MODEL };
+}
 
 /** Acceptance criteria are stored one per line. */
 export const criteriaList = (criteria: string) =>
@@ -118,8 +169,11 @@ export async function referee(input: {
   contractTitle: string; scope: string;
   milestone: { title: string; criteria: string; amountUsd: number };
   note: string; url: string | null; urlText: string | null;
+  /** Set when the AI may not run (a spend limit); the reason is shown with the offline verdict. */
+  offline?: string;
 }): Promise<Verdict> {
   const criteria = criteriaList(input.milestone.criteria);
+  if (input.offline) { const v = offline(criteria, input.note, input.urlText, !!input.urlText); return { ...v, summary: `${input.offline}. ${v.summary}` }; }
   if (!usingModel()) return offline(criteria, input.note, input.urlText, !!input.urlText);
 
   const prompt = [
@@ -135,21 +189,8 @@ export async function referee(input: {
       : input.url ? '(The link could not be read, so nothing from it can be verified.)' : '',
   ].filter(Boolean).join('\n');
 
-  const client = new Anthropic();
-  const res: any = await client.beta.messages.create({
-    model: MODEL,
-    max_tokens: 16000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    system: SYSTEM,
-    output_config: { effort: 'medium', format: { type: 'json_schema', schema: VERDICT_SCHEMA } },
-    messages: [{ role: 'user', content: prompt }],
-  } as any);
-
-  if (res.stop_reason === 'refusal') throw new Error('The referee declined to review this submission.');
-  const text = (res.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('');
-  const v = JSON.parse(text);
-  return clean({ ...v, model: res.model ?? MODEL, read_url: !!input.urlText }, criteria);
+  const { value: v, model } = await structured({ system: SYSTEM, prompt, schema: VERDICT_SCHEMA, effort: 'medium', maxTokens: 16000 });
+  return clean({ ...v, model, read_url: !!input.urlText }, criteria);
 }
 
 /** Keep the verdict inside its own rules, whatever came back. */
@@ -186,7 +227,7 @@ export function offline(criteria: string[], note: string, urlText: string | null
   const unmet = checks.filter(c => c.status !== 'met').map(c => c.criterion);
   return {
     recommendation: rec, release_percent: rec === 'request_changes' ? 0 : rec === 'release' ? 100 : pct,
-    summary: `Offline referee (no ANTHROPIC_API_KEY): ${checks.filter(c => c.status === 'met').length} of ${checks.length} criteria have matching evidence.`,
+    summary: `Offline referee: ${checks.filter(c => c.status === 'met').length} of ${checks.length} criteria have matching evidence.`,
     checks,
     message_to_freelancer: unmet.length ? `Please show evidence for: ${unmet.join('; ')}.` : '',
     confidence: 'low', model: 'offline', read_url: readUrl,
@@ -204,21 +245,18 @@ const SHARPEN_SCHEMA = {
  * Vague criteria are where escrow disputes come from. Turn "make it look good"
  * into checks a referee can actually verify, before anyone funds anything.
  */
-export async function sharpen(title: string, draft: string): Promise<string[]> {
-  if (!usingModel()) {
+export async function sharpen(title: string, draft: string, offline = false): Promise<string[]> {
+  if (offline || !usingModel()) {
     const lines = criteriaList(draft);
     return lines.length ? lines : [`${title} is delivered as a link the client can open`];
   }
-  const client = new Anthropic();
-  const res: any = await client.beta.messages.create({
-    model: MODEL, max_tokens: 4000,
-    betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
-    system: 'Rewrite a milestone\'s acceptance criteria so an independent reviewer could check each one from a link or a short note. Keep the client\'s intent; make each criterion concrete and observable. No more than six.',
-    output_config: { effort: 'low', format: { type: 'json_schema', schema: SHARPEN_SCHEMA } },
-    messages: [{ role: 'user', content: `Milestone: ${title}\nDraft criteria:\n${draft || '(none yet)'}` }],
-  } as any);
-  if (res.stop_reason === 'refusal') return criteriaList(draft);
-  const text = (res.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('');
-  const out = JSON.parse(text).criteria;
+  let out: unknown;
+  try {
+    ({ value: { criteria: out } } = await structured({
+      system: 'Rewrite a milestone\'s acceptance criteria so an independent reviewer could check each one from a link or a short note. Keep the client\'s intent; make each criterion concrete and observable. No more than six, each under 15 words.',
+      prompt: `Milestone: ${title}\nDraft criteria:\n${draft || '(none yet)'}`,
+      schema: SHARPEN_SCHEMA, effort: 'low', maxTokens: 4000,
+    }));
+  } catch { return criteriaList(draft); }
   return Array.isArray(out) && out.length ? out.map(String).slice(0, 6) : criteriaList(draft);
 }

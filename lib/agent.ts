@@ -28,7 +28,8 @@ export function agentBinary(): string | null {
 
 export function agentReady(): { ok: boolean; why?: string } {
   if (!agentBinary()) return { ok: false, why: 'Build the agent: npm run agent:build' };
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.CAIRN_MODEL) return { ok: false, why: 'Set ANTHROPIC_API_KEY' };
+  if (!process.env.K2_API_KEY && !process.env.K2HORIZON && !process.env.ANTHROPIC_API_KEY && !process.env.CAIRN_MODEL)
+    return { ok: false, why: 'Set K2_API_KEY (free) or ANTHROPIC_API_KEY' };
   return { ok: true };
 }
 
@@ -45,6 +46,7 @@ function exec(args: string[], origin: string): Promise<AgentResult> {
       env: {
         ...process.env,
         FAIRPAY_MCP_URL: `${origin}/api/mcp`,
+        K2_API_KEY: process.env.K2_API_KEY ?? process.env.K2HORIZON ?? '',
         CAIRN_RUNS_DIR: resolve(/*turbopackIgnore: true*/ process.env.CAIRN_RUNS_DIR ?? 'data/agent-runs'),
       },
       stdio: ['ignore', 'pipe', 'pipe'],

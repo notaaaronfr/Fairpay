@@ -16,6 +16,7 @@
 import { db, contract, milestones, milestone } from '../../../lib/db.ts';
 import * as escrow from '../../../lib/escrow.ts';
 import { round2 } from '../../../lib/paypal.ts';
+import { allowAI, clientIp } from '../../../lib/limits.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,7 +102,7 @@ function summary(id: string) {
   };
 }
 
-async function call(name: string, a: any, origin: string): Promise<unknown> {
+async function call(name: string, a: any, origin: string, ip = 'unknown'): Promise<unknown> {
   const d = db();
   switch (name) {
     case 'create_escrow': {
@@ -120,7 +121,8 @@ async function call(name: string, a: any, origin: string): Promise<unknown> {
     }
     case 'get_escrow': return summary(String(a.contract_id ?? ''));
     case 'submit_work': {
-      const v = await escrow.submit(d, String(a.milestone_id ?? ''), { note: String(a.note ?? ''), url: a.url ? String(a.url) : undefined });
+      const g = allowAI(d, ip, 'referee');
+      const v = await escrow.submit(d, String(a.milestone_id ?? ''), { note: String(a.note ?? ''), url: a.url ? String(a.url) : undefined }, fetch, { offline: g.ok ? undefined : g.why });
       return { verdict: v };
     }
     case 'release_payment': {
@@ -144,7 +146,7 @@ async function call(name: string, a: any, origin: string): Promise<unknown> {
 
 class RpcError extends Error { code: number; constructor(code: number, message: string) { super(message); this.code = code; } }
 
-async function handle(msg: any, origin: string): Promise<any | null> {
+async function handle(msg: any, origin: string, ip = 'unknown'): Promise<any | null> {
   const { id, method, params } = msg ?? {};
   const ok = (result: unknown) => ({ jsonrpc: '2.0', id, result });
   if (id === undefined || id === null) return null; // a notification: nothing to answer
@@ -161,7 +163,7 @@ async function handle(msg: any, origin: string): Promise<any | null> {
       case 'tools/list': return ok({ tools: TOOLS });
       case 'tools/call': {
         try {
-          const out = await call(params?.name, params?.arguments ?? {}, origin);
+          const out = await call(params?.name, params?.arguments ?? {}, origin, ip);
           return ok({ content: [{ type: 'text', text: JSON.stringify(out, null, 2) }], structuredContent: out });
         } catch (e) {
           if (e instanceof RpcError) throw e;
@@ -182,15 +184,16 @@ export async function POST(req: Request) {
     return Response.json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Unauthorized' } }, { status: 401 });
   }
   const origin = process.env.FAIRPAY_BASE_URL?.replace(/\/$/, '') ?? new URL(req.url).origin;
+  const ip = clientIp(req.headers);
   let body: any;
   try { body = await req.json(); }
   catch { return Response.json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }, { status: 400 }); }
 
   if (Array.isArray(body)) {
-    const out = (await Promise.all(body.map(m => handle(m, origin)))).filter(Boolean);
+    const out = (await Promise.all(body.map(m => handle(m, origin, ip)))).filter(Boolean);
     return out.length ? Response.json(out) : new Response(null, { status: 202 });
   }
-  const out = await handle(body, origin);
+  const out = await handle(body, origin, ip);
   return out ? Response.json(out) : new Response(null, { status: 202 });
 }
 

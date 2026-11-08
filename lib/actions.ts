@@ -17,6 +17,12 @@ const back = (id: string, q: Record<string, string> = {}) => {
 };
 const msg = (e: unknown) => e instanceof Error ? e.message : String(e);
 
+/** May this visitor make a paid AI call now? */
+async function gate(kind: 'referee' | 'sharpen' | 'agent') {
+  const { allowAI, clientIp } = await import('./limits.ts');
+  return allowAI(db(), clientIp(await headers()), kind);
+}
+
 async function origin(): Promise<string> {
   if (process.env.FAIRPAY_BASE_URL) return process.env.FAIRPAY_BASE_URL.replace(/\/$/, '');
   const h = await headers();
@@ -62,7 +68,8 @@ export async function createContract(_: Created | null, formData: FormData): Pro
 
 /** Make a milestone's criteria checkable before money is committed. */
 export async function sharpenCriteria(title: string, draft: string): Promise<{ criteria?: string[]; error?: string }> {
-  try { return { criteria: await sharpen(title, draft) }; }
+  const g = await gate('sharpen');
+  try { return { criteria: await sharpen(title, draft, !g.ok), error: g.ok ? undefined : g.why }; }
   catch (e) { return { error: msg(e) }; }
 }
 
@@ -77,16 +84,18 @@ export async function fund(formData: FormData) {
 export async function submitWork(formData: FormData) {
   const id = String(formData.get('contract'));
   try {
+    const g = await gate('referee');
     await escrow.submit(db(), String(formData.get('milestone')), {
       note: String(formData.get('note') ?? ''), url: String(formData.get('url') ?? ''),
-    });
+    }, fetch, { offline: g.ok ? undefined : g.why });
   } catch (e) { return back(id, { error: msg(e) }); }
   back(id, { done: 'Submitted. The referee has checked it — the client will see the same verdict.' });
 }
 
 export async function rereview(formData: FormData) {
   const id = String(formData.get('contract'));
-  try { await escrow.review(db(), String(formData.get('milestone'))); }
+  const g = await gate('referee');
+  try { await escrow.review(db(), String(formData.get('milestone')), fetch, { offline: g.ok ? undefined : g.why }); }
   catch (e) { return back(id, { error: msg(e) }); }
   back(id);
 }
@@ -124,6 +133,8 @@ export interface Hired { error?: string; output?: string }
 export async function hireWithAgent(_: Hired | null, formData: FormData): Promise<Hired> {
   const brief = String(formData.get('brief') ?? '').trim();
   if (brief.length < 12) return { error: 'Say what, how much, and who gets paid.' };
+  const g = await gate('agent');
+  if (!g.ok) return { error: g.why };
   const { hire } = await import('./agent.ts');
   const { contractId, result } = await hire(db(), brief, await origin());
   if (!contractId) return { error: result.status === 'error' ? result.output : undefined, output: result.output || 'The agent did not open an escrow.' };
@@ -133,6 +144,8 @@ export async function hireWithAgent(_: Hired | null, formData: FormData): Promis
 
 export async function settleWithAgent(formData: FormData) {
   const id = String(formData.get('contract'));
+  const g = await gate('agent');
+  if (!g.ok) return back(id, { error: g.why! });
   const { settle } = await import('./agent.ts');
   const r = await settle(db(), id, await origin());
   if (r.status === 'error' || r.status === 'failed') return back(id, { error: r.output });
