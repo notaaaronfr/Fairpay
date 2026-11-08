@@ -26,13 +26,13 @@ export function ago(iso: string): string {
 }
 
 export const STATUS: Record<string, { label: string; tone: string }> = {
-  draft: { label: 'Not funded', tone: '' },
-  awaiting_funds: { label: 'Awaiting PayPal approval', tone: 'amber' },
-  funded: { label: 'Funded · held in PayPal', tone: 'blue' },
+  draft: { label: 'Unfunded', tone: '' },
+  awaiting_funds: { label: 'Awaiting PayPal', tone: 'amber' },
+  funded: { label: 'Held', tone: 'blue' },
   closed: { label: 'Settled', tone: 'green' },
   open: { label: 'In progress', tone: '' },
-  submitted: { label: 'Submitted · awaiting release', tone: 'amber' },
-  changes_requested: { label: 'Changes requested', tone: 'red' },
+  submitted: { label: 'Submitted', tone: 'amber' },
+  changes_requested: { label: 'Changes', tone: 'red' },
   released: { label: 'Paid', tone: 'green' },
   cancelled: { label: 'Cancelled', tone: '' },
 };

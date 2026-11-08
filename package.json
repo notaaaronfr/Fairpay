@@ -5,7 +5,9 @@
   "type": "module",
   "description": "AI-refereed milestone escrow on PayPal: money is held, work is checked, payment is released.",
   "license": "MIT",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -15,6 +17,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
+    "motion": "^12.43.0",
     "next": "16.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"

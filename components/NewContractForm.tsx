@@ -32,15 +32,15 @@ export function NewContractForm() {
       {state?.error && <div className="note err" role="alert">{state.error}</div>}
 
       <div className="panel stack">
-        <label>Contract title<input name="title" required defaultValue="Bakery website" /></label>
-        <label>Scope <span className="dim">(optional — gives the referee context)</span>
+        <label>Title<input name="title" required defaultValue="Bakery website" /></label>
+        <label>Scope
           <textarea name="scope" defaultValue="A simple website for a neighbourhood bakery: home, menu and contact pages." />
         </label>
-        <div className="grid2">
+        <div className="two">
           <label>Client<input name="client" required defaultValue="Rosa's Bakery" /></label>
           <label>Freelancer<input name="freelancer" required defaultValue="Lina Haddad" /></label>
         </div>
-        <label>Freelancer&rsquo;s PayPal email <span className="dim">(where payouts go)</span>
+        <label>Payout email
           <input name="email" type="email" required defaultValue={process.env.NEXT_PUBLIC_DEMO_PAYEE ?? 'lina@freelancer.example'} />
         </label>
       </div>
@@ -51,27 +51,26 @@ export function NewContractForm() {
             <h3>Milestone {i + 1}</h3>
             {ms.length > 1 && <button type="button" className="btn small" onClick={() => setMs(xs => xs.filter(x => x.key !== m.key))}>Remove</button>}
           </div>
-          <div className="grid2">
-            <label>What is delivered<input name="m_title" value={m.title} onChange={e => set(m.key, { title: e.target.value })} required /></label>
-            <label>Amount (USD)<input name="m_amount" inputMode="decimal" value={m.amount} onChange={e => set(m.key, { amount: e.target.value })} required /></label>
+          <div className="two">
+            <label>Deliverable<input name="m_title" value={m.title} onChange={e => set(m.key, { title: e.target.value })} required /></label>
+            <label>USD<input name="m_amount" inputMode="decimal" value={m.amount} onChange={e => set(m.key, { amount: e.target.value })} required /></label>
           </div>
-          <label>Acceptance criteria <span className="dim">(one per line — this is what the referee checks)</span>
+          <label>Criteria
             <textarea name="m_criteria" rows={4} value={m.criteria} onChange={e => set(m.key, { criteria: e.target.value })} />
           </label>
           <div className="row">
             <button type="button" className="btn small sun" onClick={() => sharpen(m)} disabled={busy !== null}>
-              {busy === m.key ? 'Sharpening…' : '✦ Make criteria checkable with AI'}
+              {busy === m.key ? 'Sharpening…' : '✦ Sharpen with AI'}
             </button>
-            <span className="dim">Vague criteria are where disputes come from.</span>
           </div>
         </div>
       ))}
 
       <div className="row between">
-        <button type="button" className="btn" onClick={() => setMs(xs => [...xs, { key: Date.now(), title: '', criteria: '', amount: '' }])}>+ Add milestone</button>
+        <button type="button" className="btn" onClick={() => setMs(xs => [...xs, { key: Date.now(), title: '', criteria: '', amount: '' }])}>+ Milestone</button>
         <div className="row">
-          <span className="muted">Total to hold in PayPal: <b style={{ color: 'var(--ink)' }}>${total.toFixed(2)}</b></span>
-          <button className="btn primary" disabled={pending}>{pending ? 'Creating…' : 'Create escrow'}</button>
+          <span className="muted">Total <b style={{ color: 'var(--ink)' }}>${total.toFixed(2)}</b></span>
+          <button className="btn primary" disabled={pending}>{pending ? 'Creating…' : 'Create'}</button>
         </div>
       </div>
     </form>

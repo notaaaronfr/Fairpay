@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { modes, role } from '../lib/ui.ts';
 import { Header } from '../components/Shell.tsx';
 
-const sans = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['200', '300', '400', '500', '600'], style: ['normal', 'italic'], variable: '--font-sans', display: 'swap' });
+const sans = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['200', '300', '400', '500', '600'], variable: '--font-sans', display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'Fairpay — pay on proof',
@@ -23,7 +23,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
           <Header theme={theme} role={await role()} live={m.paypal !== 'simulated'} />
           {children}
           <div className="pagefoot">
-            {m.paypalLabel} · {m.aiLabel} · Fairpay holds money with PayPal and releases it only on a person&rsquo;s click. The AI referee recommends; it never pays.
+            {m.paypalLabel} · {m.aiLabel}
           </div>
         </div>
       </body>

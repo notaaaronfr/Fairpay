@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { NewContractForm } from '../../components/NewContractForm.tsx';
-import { Faqs } from '../../components/Escrow.tsx';
+import { BlurText, Rise } from '../../components/Motion.tsx';
 import { Back } from '../../components/Icons.tsx';
 
 export default function New() {
@@ -8,21 +8,21 @@ export default function New() {
     <>
       <section className="balance-row">
         <div>
-          <div className="welcome">New escrow · Agree → Fund → Prove → Pay → Settle <span className="chip">Step 1 of 5</span></div>
-          <div className="big-money" style={{ fontSize: 'clamp(44px, 6vw, 84px)' }}>Pay on proof<span className="c">.</span></div>
+          <div className="welcome"><span className="chip">1 / 5</span></div>
+          <div className="big-money" style={{ fontSize: 'clamp(44px, 6vw, 84px)' }}><BlurText text="New escrow" /></div>
         </div>
-        <div className="actions"><Link href="/" className="act"><Back />Escrows</Link></div>
+        <div className="actions"><Link href="/" className="act"><Back />Back</Link></div>
       </section>
       <div className="grid">
         <div className="col"><NewContractForm /></div>
         <div className="col">
-          <div className="track" style={{ cursor: 'default' }}>
-            <div className="title">How the money moves <span className="live">PayPal</span></div>
-            <div className="body"><div className="count">3<small>steps</small></div>
-              <div style={{ fontStyle: 'italic', fontSize: 15 }}>The total is held in PayPal. The AI referee checks each delivery. You release exactly what&rsquo;s proven — the rest goes back.</div>
+          <Rise><div className="track" style={{ cursor: 'default' }}>
+            <div className="title">How it works <span className="live">PayPal</span></div>
+            <div className="line" style={{ marginTop: 26 }}>
+              {['Agree', 'Fund', 'Prove', 'Pay'].map((s, i) => <span key={s} className={`st ${i === 0 ? 'now' : ''}`}><i />{s}</span>)}
             </div>
-          </div>
-          <Faqs />
+            <div className="foot"><span>Held, not taken</span><span><b>AI</b> checks · you pay</span></div>
+          </div></Rise>
         </div>
       </div>
     </>

@@ -7,6 +7,7 @@ import { role, usd, ago, STATUS, modes } from '../../../lib/ui.ts';
 import { fund, submitWork, releasePayment, requestChanges, closeContract, rereview } from '../../../lib/actions.ts';
 import { Submit } from '../../../components/Submit.tsx';
 import { BigMoney, Tracker, HoldCard, Activity, AV_COLORS } from '../../../components/Escrow.tsx';
+import { BlurText, Rise, Spotlight } from '../../../components/Motion.tsx';
 import { Lock, Back, Down } from '../../../components/Icons.tsx';
 
 export const dynamic = 'force-dynamic';
@@ -39,24 +40,23 @@ export default async function ContractPage({ params, searchParams }: {
       <section className="balance-row">
         <div>
           <div className="welcome">
-            {c.client_name} → {c.freelancer_name} · {c.status === 'closed' ? 'Paid on proof' : 'Held in PayPal'}
+            <BlurText text={`${c.client_name} → ${c.freelancer_name}`} />
             <span className={`chip ${paid ? 'pos' : ''}`}>{paid ? `▲ ${usd(paid)} paid` : STATUS[c.status].label}</span>
-            <span>USD</span>
           </div>
           <BigMoney value={c.status === 'closed' ? paid : held || c.total_usd} />
         </div>
         <div className="actions">
-          <Link href="/" className="act"><Back />Escrows</Link>
+          <Link href="/" className="act"><Back />Back</Link>
           {who === 'client' && !c.authorization_id && c.status !== 'closed' && (
             <form action={fund}>
               <input type="hidden" name="contract" value={c.id} />
-              <Submit className="act" pending="Opening PayPal…"><Lock />Fund {usd(c.total_usd)}</Submit>
+              <Submit className="act" pending="Opening PayPal…"><Lock />Fund</Submit>
             </form>
           )}
           {who === 'client' && funded && held > 0 && (
             <form action={closeContract}>
               <input type="hidden" name="contract" value={c.id} />
-              <Submit className="act" pending="Returning…"><Down />Close &amp; return {usd(held)}</Submit>
+              <Submit className="act" pending="Returning…"><Down />Return {usd(held)}</Submit>
             </form>
           )}
         </div>
@@ -67,27 +67,25 @@ export default async function ContractPage({ params, searchParams }: {
       <div className="grid">
         <div className="col">
           <Tracker c={c} ms={ms} log={log} />
-          <div className="panel">
-            <div className="panel-head"><h2>Milestones</h2><span className="dim" style={{ fontStyle: 'italic' }}>{ms.filter(x => x.status === 'released').length} of {ms.length} paid</span></div>
-            {c.scope && <p className="muted" style={{ fontStyle: 'italic', marginBottom: 8 }}>{c.scope}</p>}
-            {ms.map(x => <MilestoneRow key={x.id} m={x} contractId={c.id} funded={funded} who={who} />)}
-          </div>
+          <Rise i={1}><Spotlight className="panel">
+            <div className="panel-head"><h2>Milestones</h2><span className="dim">{ms.filter(x => x.status === 'released').length}/{ms.length} paid</span></div>
+            {ms.map((x, i) => <Rise key={x.id} i={i}><MilestoneRow m={x} contractId={c.id} funded={funded} who={who} /></Rise>)}
+          </Spotlight></Rise>
         </div>
 
         <div className="col">
           <HoldCard c={c} held={held} paid={paid}>
-            <div className="stack" style={{ gap: 6, marginTop: 10, fontSize: 13.5, fontStyle: 'italic' }}>
-              <div className="row between"><span className="dim">Payouts to</span><span className="mono">{c.freelancer_email}</span></div>
-              {c.payer && <div className="row between"><span className="dim">Funded by</span><span className="mono">{c.payer}</span></div>}
-              <div className="row between"><span className="dim">Returned</span><span>{usd(c.refunded_usd)}</span></div>
+            <div className="stack" style={{ gap: 6, marginTop: 10, fontSize: 13.5 }}>
+              <div className="row between"><span className="dim">To</span><span className="mono">{c.freelancer_email}</span></div>
+              {c.refunded_usd > 0 && <div className="row between"><span className="dim">Returned</span><span>{usd(c.refunded_usd)}</span></div>}
             </div>
           </HoldCard>
-          {who === 'freelancer' && !c.authorization_id && <div className="note">Wait until the client has funded it — the money held in PayPal is your guarantee.</div>}
-          {m.paypal === 'simulated' && <div className="note">PayPal is simulated (no keys): ids start with SIM- and no money moves.</div>}
-          <div className="panel">
-            <div className="panel-head"><h2>Record</h2><span className="dim" style={{ fontStyle: 'italic' }}>Both sides see the same</span></div>
+          {who === 'freelancer' && !c.authorization_id && <div className="note">Not funded yet.</div>}
+          {m.paypal === 'simulated' && <div className="note">PayPal simulated.</div>}
+          <Rise i={2}><Spotlight className="panel">
+            <div className="panel-head"><h2>Record</h2></div>
             <Activity rows={log} />
-          </div>
+          </Spotlight></Rise>
         </div>
       </div>
     </>
@@ -106,25 +104,28 @@ function MilestoneRow({ m, contractId, funded, who }: { m: Milestone; contractId
       <div className="row between" style={{ flexWrap: 'nowrap' }}>
         <div className="who">
           <span className="av" style={{ background: AV_COLORS[(m.position - 1) % AV_COLORS.length] }}>{m.position}</span>
-          <span style={{ fontStyle: 'italic', fontSize: 17 }}>{m.title}<small style={{ display: 'block' }} className="dim">{criteriaList(m.criteria).length} criteria</small></span>
+          <span style={{ fontSize: 17 }}>{m.title}</span>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontStyle: 'italic', fontSize: 17, fontWeight: 600 }}>{usd(m.amount_usd)}</div>
+          <div style={{ fontSize: 17, fontWeight: 600 }}>{usd(m.amount_usd)}</div>
           <span className={`pill ${TONE[s.tone] ?? ''}`}>{s.label}</span>
         </div>
       </div>
-      <ul className="criteria">{criteriaList(m.criteria).map((c, i) => <li key={i}>{c}</li>)}</ul>
+      <details className="crit">
+        <summary>{criteriaList(m.criteria).length} criteria</summary>
+        <ul className="criteria">{criteriaList(m.criteria).map((c, i) => <li key={i}>{c}</li>)}</ul>
+      </details>
 
       {m.status === 'released' && (
         <div className="note ok">
-          {usd(m.paid_usd)} paid out via PayPal{m.paid_usd < m.amount_usd ? ` · ${usd(m.amount_usd - m.paid_usd)} not released` : ''}
+          Paid {usd(m.paid_usd)}
           <div className="mono" style={{ marginTop: 4, opacity: .8 }}>capture {m.capture_id} · payout {m.payout_batch_id} · {(m.payout_status ?? '').toLowerCase()}</div>
         </div>
       )}
 
       {(m.submission_note || m.submission_url) && (
         <div className="verdict" style={{ padding: 14 }}>
-          <div className="dim" style={{ fontStyle: 'italic' }}>Submitted {m.submitted_at ? ago(m.submitted_at) : ''}</div>
+          <div className="dim">{m.submitted_at ? ago(m.submitted_at) : ''}</div>
           {m.submission_note && <p style={{ marginTop: 6 }}>{m.submission_note}</p>}
           {m.submission_url && <a className="more mono" style={{ marginTop: 6, wordBreak: 'break-all' }} href={m.submission_url} target="_blank" rel="noreferrer noopener">{m.submission_url}</a>}
         </div>
@@ -134,37 +135,37 @@ function MilestoneRow({ m, contractId, funded, who }: { m: Milestone; contractId
         <div className="verdict">
           <div className="row between">
             <div className="row" style={{ gap: 10 }}>
-              <b style={{ fontWeight: 600, fontStyle: 'italic' }}>✦ AI Referee</b>
+              <b style={{ fontWeight: 600 }}>✦ Referee</b>
               <span className={`pill ${REC[v.recommendation].tone}`}>{REC[v.recommendation].label} · {v.release_percent}%</span>
             </div>
-            <span className="dim" style={{ fontStyle: 'italic' }}>{v.confidence} confidence{v.read_url ? ' · read the link' : m.submission_url ? ' · link unreadable' : ''}</span>
+            <span className="dim">{v.confidence}</span>
           </div>
           <p style={{ margin: '12px 0 6px' }}>{v.summary}</p>
           {v.checks.map((ch, i) => (
-            <div className="check" key={i}>
+            <Rise key={i} i={i} className="check">
               <span className={`mk ${ch.status}`}>{MARK[ch.status] ?? '?'}</span>
               <span>{ch.criterion}<br /><span className="dim">{ch.evidence}</span></span>
-            </div>
+            </Rise>
           ))}
-          {v.message_to_freelancer && <div className="check"><span className="mk unverifiable">✎</span><span><span className="dim">Note for the freelancer</span><br />{v.message_to_freelancer}</span></div>}
-          <div className="dim" style={{ marginTop: 8 }}>{v.model === 'offline' ? 'Offline referee (no AI key)' : v.model}</div>
+          {v.message_to_freelancer && <div className="check"><span className="mk unverifiable">✎</span><span>{v.message_to_freelancer}</span></div>}
+          
           {who === 'client' && m.status === 'submitted' && (
             <div className="stack" style={{ marginTop: 16, gap: 10 }}>
               <form action={releasePayment} className="row" style={{ alignItems: 'end' }}>
                 <input type="hidden" name="contract" value={contractId} />
                 <input type="hidden" name="milestone" value={m.id} />
-                <label style={{ width: 160 }}>Release (USD)<input name="amount" inputMode="decimal" defaultValue={suggested.toFixed(2)} /></label>
-                <Submit className="btn blue" pending="Paying via PayPal…">Release &amp; pay with PayPal</Submit>
+                <label style={{ width: 140 }}>USD<input name="amount" inputMode="decimal" defaultValue={suggested.toFixed(2)} /></label>
+                <Submit className="btn blue" pending="Paying…">Release</Submit>
               </form>
               <form action={requestChanges}>
                 <input type="hidden" name="contract" value={contractId} />
                 <input type="hidden" name="milestone" value={m.id} />
                 <input type="hidden" name="message" value={v.message_to_freelancer} />
-                <Submit className="btn small" pending="Sending…">Request changes instead</Submit>
+                <Submit className="btn small" pending="Sending…">Ask for changes</Submit>
               </form>
             </div>
           )}
-          {who === 'freelancer' && m.status === 'submitted' && <p className="dim" style={{ marginTop: 12 }}>The client sees this same verdict and decides what to release.</p>}
+          
         </div>
       )}
 
@@ -179,13 +180,13 @@ function MilestoneRow({ m, contractId, funded, who }: { m: Milestone; contractId
         <form action={submitWork} className="submitbox">
           <input type="hidden" name="contract" value={contractId} />
           <input type="hidden" name="milestone" value={m.id} />
-          <div style={{ fontStyle: 'italic', fontSize: 16 }}>{m.status === 'changes_requested' ? 'Changes requested — submit again when it’s fixed' : 'Submit your work — the AI referee checks every criterion'}</div>
-          <input name="url" type="url" placeholder="Link to the work (page, repo, Figma, doc)" aria-label="Link to the work" />
-          <textarea name="note" rows={3} placeholder="What you delivered, criterion by criterion" aria-label="What you delivered" />
-          <div><Submit className="btn primary" pending="The referee is checking…">Submit for review</Submit></div>
+          <div style={{ fontSize: 16, fontWeight: 500 }}>{m.status === 'changes_requested' ? 'Resubmit' : 'Submit'}</div>
+          <input name="url" type="url" placeholder="Link" aria-label="Link to the work" />
+          <textarea name="note" rows={3} placeholder="Note" aria-label="What you delivered" />
+          <div><Submit className="btn primary" pending="Checking…">Submit</Submit></div>
         </form>
       )}
-      {who === 'freelancer' && !funded && !settled && <p className="dim">You can submit once the client has funded the contract.</p>}
+      
     </article>
   );
 }
