@@ -12,7 +12,7 @@ It works for people hiring people, and for **AI agents hiring and paying on
 someone's behalf**: Fairpay is also an MCP server, with guardrails that make it
 safe to let an agent spend money.
 
-> Built for the PayPal AI Hackathon 2026.
+> Built for the PayPal AI Hackathon 2026. **Live demo (PayPal sandbox): http://187.126.26.84:8790**
 
 ---
 
@@ -110,6 +110,15 @@ Testing the MCP server without an agent:
 curl -s localhost:3000/api/mcp -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+## Deploy
+
+```bash
+cp .env.example deploy/.env   # fill in keys, FAIRPAY_BASE_URL, FAIRPAY_PORT
+docker compose -f deploy/compose.yml --env-file deploy/.env up -d --build
+```
+
+One image builds the app and the Cairn agent. The compose project is isolated (own network, volume and port), runs as a non-root user and is CPU/memory capped, so it can share a server safely. `render.yaml` deploys the same image on Render.
 
 ## How it's built
 

@@ -47,7 +47,7 @@ nextjs, react, typescript, node.js, sqlite, paypal-orders-api, paypal-payouts-ap
 
 ### "Try it out" links
 - https://github.com/notaaaronfr/Fairpay
-- (hosted demo URL — added once deployed)
+- http://187.126.26.84:8790 (live demo, PayPal sandbox)
 
 ### Image gallery
 `docs/thumbnail.png` plus screenshots of: home, contract with verdict, new escrow, activity.
@@ -66,7 +66,7 @@ nextjs, react, typescript, node.js, sqlite, paypal-orders-api, paypal-payouts-ap
 | If it existed before | N/A |
 | Sponsor tools used | None (Render config included in the repo; optional) |
 | Code repository | https://github.com/notaaaronfr/Fairpay |
-| Working demo | (hosted URL) |
+| Working demo | http://187.126.26.84:8790 |
 
 **How the project meets the technology requirement**
 
@@ -74,7 +74,7 @@ PayPal (sandbox): Orders v2 `intent: AUTHORIZE` holds the client's budget; `POST
 
 **Testing instructions**
 
-No keys needed to try locally: `npm install && npm run dev` — PayPal runs simulated and the referee runs offline; the header shows the mode. On the hosted demo (PayPal sandbox): open New → use the prefilled form or "Describe it" → Fund with PayPal and approve with any PayPal **sandbox Personal** account → switch the header avatar to FR (freelancer) → submit a milestone with a public link → switch back to CL (client) → Release. MCP: `curl -s <demo>/api/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`.
+No keys needed to try locally: `npm install && npm run dev` — PayPal runs simulated and the referee runs offline; the header shows the mode. On the hosted demo (PayPal sandbox): open New → use the prefilled form or "Describe it" → Fund with PayPal and approve with any PayPal **sandbox Personal** account → switch the header avatar to FR (freelancer) → submit a milestone with a public link → switch back to CL (client) → Release. MCP: `curl -s http://187.126.26.84:8790/api/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`.
 
 **Overall experience rating:** 8 / 10 — Authorize-then-partial-capture fits milestone escrow perfectly and the sandbox is quick to set up. Friction: the sandbox checkout follows the account's region (ours rendered in Arabic), Payouts must be enabled per app, and it took some digging to confirm partial captures plus a final void are supported on one authorization.
 
